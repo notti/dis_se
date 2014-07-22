@@ -1,0 +1,6 @@
+prereq
+*.o
+*.vcd
+*.cf
+tb_*
+!*vhd
