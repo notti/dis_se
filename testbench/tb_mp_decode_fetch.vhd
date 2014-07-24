@@ -19,15 +19,15 @@ architecture behav of tb_mp_decode_fetch is
        signal pdata_rd : std_logic := '0';
        signal start   :  std_logic := '0';
        signal busy    :  std_logic := '0';
-       signal argtype :  std_logic_vector(9 downto 0) := (others => '0');
-       signal memchunk :  std_logic_vector(9 downto 0) := (others => '0');
        signal mem_addr :  std_logic_vector(9 downto 0) := (others => '0'); 
        signal mem_rd   :  std_logic := '0';
+       signal cmd_in   :  t_vliw := empty_vliw;
        signal mem_data :  t_data := (others => '0');
        signal reg_addr :  t_data := (others => '0');
        signal reg_rd   :  std_logic := '0';
        signal reg_data :  t_data := (others => '0');
        signal arg      :  t_data_array(4 downto 0) := (others => (others => '0'));
+       signal cmd_out  :  t_vliw := empty_vliw;
        signal finished :  std_logic := '0';
 
        signal args     : t_data_array(4 downto 0) := (others => (others => '0'));
@@ -36,15 +36,16 @@ architecture behav of tb_mp_decode_fetch is
 
        procedure do_cmd(signal cmd     : in  t_data;
                         signal args    : in  t_data_array(4 downto 0);
-                        signal argtype : in std_logic_vector(9 downto 0);
+                        signal cmd_in  : in  t_vliw;
                         signal start   : out std_logic;
                         signal pdata   : out t_data) is
+            variable x : std_logic_vector(1 downto 0);
        begin
            start <= '1';
            wait for 20 ns;
            start <= '0';
            for i in 0 to 4 loop
-               if argtype(i*2+1 downto i*2) /= "00" then
+               if cmd_in.arg_type(i) /= "00" then
                    pdata <= args(i);
                    wait for 20 ns;
                end if;
@@ -80,45 +81,49 @@ begin
         wait for 40 ns;
         rst <= '0';
 
-        argtype  <= "0000000000";
-        memchunk <= "0000000000";
+        cmd_in.arg_type <= (others => "00");
+        cmd_in.arg_memchunk <= (others => "00");
         args <= ( X"01", X"02", X"03", X"04", X"05");
         cmd <= X"AA";
-        do_cmd(cmd, args, argtype, start, pdata);
+        do_cmd(cmd, args, cmd_in, start, pdata);
 
-        argtype  <= "0101010101";
-        memchunk <= "0000000000";
+        cmd_in.arg_type <= (others => "01");
+        cmd_in.arg_memchunk <= (others => "00");
         args <= ( X"01", X"02", X"03", X"04", X"05");
         cmd <= X"BB";
-        do_cmd(cmd, args, argtype, start, pdata);
-
-        argtype  <= "1010101010";
-        memchunk <= "0110110001";
-        args <= ( X"01", X"02", X"03", X"04", X"05");
-        cmd <= X"BB";
-        do_cmd(cmd, args, argtype, start, pdata);
+        do_cmd(cmd, args, cmd_in, start, pdata);
 
         wait for 20 ns;
 
-        argtype  <= "1111111111";
-        memchunk <= "0000000000";
+        cmd_in.arg_type <= (others => "10");
+        cmd_in.arg_memchunk <= (0 => "01", 1 => "00", 2 => "11", 3 => "10", 4 => "01");
         args <= ( X"01", X"02", X"03", X"04", X"05");
         cmd <= X"BB";
-        do_cmd(cmd, args, argtype, start, pdata);
+        do_cmd(cmd, args, cmd_in, start, pdata);
+
+        wait for 20 ns;
+
+        cmd_in.arg_type <= (others => "11");
+        cmd_in.arg_memchunk <= (others => "00");
+        args <= ( X"01", X"02", X"03", X"04", X"05");
+        cmd <= X"BB";
+        do_cmd(cmd, args, cmd_in, start, pdata);
 
         wait for 80 ns;
 
-        argtype  <= "0101101011";
-        memchunk <= "0000000110";
+        cmd_in.arg_type <= (0 => "11", 1 => "10", 2 => "10", 3 => "01", 4 => "01");
+        cmd_in.arg_memchunk <= (0 => "10", 1 => "01", others => "00");
         args <= ( X"01", X"02", X"03", X"04", X"05");
         cmd <= X"BB";
-        do_cmd(cmd, args, argtype, start, pdata);
+        do_cmd(cmd, args, cmd_in, start, pdata);
 
-        argtype  <= "0000001111";
-        memchunk <= "0000000110";
+        wait for 20 ns;
+
+        cmd_in.arg_type <= (0 => "11", 1 => "11", others => "00");
+        cmd_in.arg_memchunk <= (0 => "10", 1 => "01", others => "00");
         args <= ( X"01", X"02", X"03", X"04", X"05");
         cmd <= X"BB";
-        do_cmd(cmd, args, argtype, start, pdata);
+        do_cmd(cmd, args, cmd_in, start, pdata);
 
         wait for 60 ns;
         assert false report "stop" severity failure;
@@ -132,8 +137,7 @@ begin
         pdata_rd => pdata_rd,
         start => start,
         busy => busy,
-        argtype => argtype,
-        memchunk => memchunk,
+        cmd_in => cmd_in,
         mem_addr => mem_addr,
         mem_rd => mem_rd,
         mem_data => mem_data,
@@ -141,6 +145,7 @@ begin
         reg_rd => reg_rd,
         reg_data => reg_data,
         arg => arg,
+        cmd_out => cmd_out,
         finished => finished
     );
 

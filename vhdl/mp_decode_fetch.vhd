@@ -17,9 +17,7 @@ entity mp_decode_fetch is
         start   : in  std_logic;
         busy    : out std_logic;
 
-        argtype : in  std_logic_vector(9 downto 0);
-        memchunk : in std_logic_vector(9 downto 0);
-
+        cmd_in  : in t_vliw;
 
         -- sync ram 0 clk
         mem_addr : out std_logic_vector(9 downto 0); 
@@ -31,6 +29,7 @@ entity mp_decode_fetch is
 
         arg      : out t_data_array(4 downto 0);
 
+        cmd_out  : out t_vliw;
         finished : out std_logic
     );
 end mp_decode_fetch;
@@ -39,9 +38,9 @@ architecture Structural of mp_decode_fetch is
     type fetch_type is (idle, fetch_mem, fetch_reg, fetch_imm, store_arg);
     signal fetch_state : fetch_type;
     signal fetch_state_1 : fetch_type;
-    type type_arr is array(natural range <>) of std_logic_vector(1 downto 0);
-    signal argtype_arr : type_arr(4 downto 0);
-    signal memchunk_arr : type_arr(4 downto 0);
+
+    signal cmd : t_vliw;
+
     signal which : unsigned(2 downto 0);
     signal which_1 : unsigned(2 downto 0);
 begin
@@ -51,23 +50,19 @@ begin
 --   10 mem
 --   11 imm
 
-convert_argtype: for i in 4 downto 0 generate
-begin
-    argtype_arr(i) <= argtype(i*2+1 downto i*2);
-    memchunk_arr(i) <= memchunk(i*2+1 downto i*2);
-end generate convert_argtype;
-
 state: process(clk)
 begin
     if rising_edge(clk) then
         if rst = '1' then
             fetch_state <= idle;
             fetch_state_1 <= idle;
+            cmd <= empty_vliw;
         else
             case fetch_state is
                 when idle =>
                     if start = '1' then
-                        case argtype_arr(to_integer(which)) is
+                        cmd <= cmd_in;
+                        case cmd_in.arg_type(to_integer(which)) is
                             when "01" =>
                                 fetch_state <= fetch_reg;
                             when "10" =>
@@ -84,7 +79,7 @@ begin
                     if which = 4 then
                         fetch_state <= store_arg; -- optimize fetch_imm case?
                     else
-                        case argtype_arr(to_integer(which)) is
+                        case cmd.arg_type(to_integer(which)) is
                             when "01" =>
                                 fetch_state <= fetch_reg;
                             when "10" =>
@@ -141,13 +136,15 @@ reg_rd <= '1' when fetch_state = fetch_reg else
           '0';
 pdata_rd <= '1' when fetch_state = fetch_mem or fetch_state = fetch_reg or fetch_state = fetch_imm else
             '0';
-mem_addr(9 downto 8) <= memchunk_arr(to_integer(which));
+mem_addr(9 downto 8) <= cmd.arg_memchunk(to_integer(which));
 mem_addr(7 downto 0) <= pdata;
 reg_addr <= pdata;
 
-finished <= '1' when fetch_state = idle and start = '1' and argtype_arr(to_integer(which)) = "00" else
+finished <= '1' when fetch_state = idle and start = '1' and cmd_in.arg_type(to_integer(which)) = "00" else
             '1' when fetch_state_1 = store_arg else
             '0';
+cmd_out <= cmd_in when fetch_state = idle and start = '1' and cmd_in.arg_type(to_integer(which)) = "00" else 
+           cmd;
 busy <= '1' when fetch_state = store_arg else -- expand to fetch_state_1?
         '0';
 
