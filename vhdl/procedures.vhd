@@ -17,6 +17,7 @@ package procedures is
             arg_memchunk : t_2array(4 downto 0);
             
             -- indirect_fetch
+            last_val     : std_logic;
             arg_assign   : t_3array(4 downto 0);
             mem_fetch    : t_1array(4 downto 0);
             mem_memchunk : t_2array(4 downto 0);
@@ -33,6 +34,7 @@ package procedures is
         arg_type => (others => (others => '0')),
         arg_memchunk => (others => (others => '0')),
         arg_assign => (others => (others => '0')),
+        last_val => '0',
         mem_fetch => (others => '0'),
         mem_memchunk => (others => (others => '0'))
     );
