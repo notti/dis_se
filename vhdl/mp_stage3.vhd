@@ -30,6 +30,8 @@ architecture Structural of mp_stage3 is
     signal b1  : t_data;
     signal a2  : t_data;
     signal b2  : t_data;
+    signal val : t_data_array(4 downto 0);
+    signal cmd : t_data_array(4 downto 0);
 begin
 
 a1 <= val_in(to_integer(unsigned(cmd_in.s3_in1a)));
@@ -41,22 +43,21 @@ p: process(clk)
 begin
     if rising_edge(clk) then
         if rst = '1' then
-            cmd_out <= empty_vliw;
+            cmd <= empty_vliw;
         else
-            cmd_out <= cmd_in;
+            cmd <= cmd_in;
         end if;
         arg_out <= arg_in;
-        vmux: for i in 4 downto 0 loop
-            if to_integer(unsigned(cmd_in.s3_out1)) = i then
-                val_out(i) <= c1;
-            elsif to_integer(unsigned(cmd_in.s3_out2)) = i then
-                val_out(i) <= c2;
-            else 
-                val_out(i) <= val_in(i);
-            end if;
-        end loop vmux;
+        val <= val_in;
     end if;
 end process p;
+
+cmd_out <= cmd;
+vmux: for i in 4 downto 0 generate
+    val_out(i) <= c1 when to_integer(unsigned(cmd.s3_out1)) = i else
+                  c2 when to_integer(unsigned(cmd.s3_out2)) = i else
+                  val(i);
+end generate vmux;
 
 simple_alu_1: entity work.simple_alu
 port map(
