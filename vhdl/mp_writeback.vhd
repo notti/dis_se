@@ -35,6 +35,7 @@ architecture Structural of mp_writeback is
     signal arg_r : t_data_array(4 downto 0);
 
     signal which : unsigned(2 downto 0) := (others => '0');
+    signal which_1 : unsigned(2 downto 0) := (others => '0');
 begin
 
 arg_mux: for i in 4 downto 0 generate
@@ -55,7 +56,7 @@ begin
             case fetch_state is
                 when idle =>
                     cmd_r <= cmd_in;
-                    if cmd.wb(to_integer(which)) = '0' then
+                    if cmd.wb(to_integer(which_1)) = '0' then
                         fetch_state <= idle;
                     else
                         fetch_state <= write_mem;
@@ -64,7 +65,7 @@ begin
                     if which = 4 then
                         fetch_state <= idle;
                     else
-                        if cmd.wb(to_integer(which)) = '1' then
+                        if cmd.wb(to_integer(which_1)) = '1' then
                             fetch_state <= write_mem;
                         else
                             fetch_state <= idle;
@@ -82,11 +83,18 @@ begin
     if rising_edge(clk) then
         if rst = '1' then
             which <= (others => '0');
+            which_1 <= "001";
         else
-            if cmd.wb(to_integer(which)) = '0' or which = 4 then
+            if cmd.wb(to_integer(which_1)) = '0' or which = 4 then
                 which <= (others => '0');
+                which_1 <= "001";
             else
                 which <= which + 1;
+                if which_1 = 4 then
+                    which_1 <= "001";
+                else
+                    which_1 <= which_1 + 1;
+                end if;
             end if;
         end if;
     end if;
