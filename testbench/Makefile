@@ -6,8 +6,7 @@ GHDLFLAGS = --ieee=synopsys -fexplicit -Wc,-m32 -Wa,--32 -Wl,-m32
 LIBS = -Punisim -Punimacro
 WORK = --work=work
 
-tb_mp_decode_fetch.o: mp_decode_fetch.o 
-tb_mp_indirect_fetch.o: mp_indirect_fetch.o
+
 
 %: %.o
 	$(GHDL) -e $(GHDLFLAGS) $(LIBS) $(WORK) $@
@@ -15,7 +14,7 @@ tb_mp_indirect_fetch.o: mp_indirect_fetch.o
 %.o: %.vhd
 	$(GHDL) -a $(GHDLFLAGS) $(LIBS) $(WORK) $<
 
-tb_mp_decode_fetch.ghw tb_mp_indirect_fetch.ghw: %.ghw: %
+tb_shift.ghw tb_mp_decode_fetch.ghw tb_mp_indirect_fetch.ghw: %.ghw: %
 	./$< --wave=$@
 
 export 
@@ -45,5 +44,10 @@ vpath %.vhd ../vhdl:.
 .SUFFIXES:
 .SUFFIXES: .vhd .o .ghw
 
+shift_ra.o: procedures.o
+shift_rl.o: procedures.o
 mp_decode_fetch.o: procedures.o
 mp_indirect_fetch.o: procedures.o
+tb_mp_decode_fetch.o: mp_decode_fetch.o procedures.o
+tb_mp_indirect_fetch.o: mp_indirect_fetch.o procedures.o
+tb_shift.o: shift_ra.o shift_rl.o procedures.o
