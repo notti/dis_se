@@ -50,7 +50,7 @@ architecture behav of tb_mp_stage1 is
                 cmd.s1_op1 <= std_logic_vector(to_unsigned(i, cmd.s1_op1'length));
             end if;
             if op2 = op_lut(i) then
-                cmd.s1_op2 <= std_logic_vector(to_unsigned(i, cmd.s2_op1'length));
+                cmd.s1_op2 <= std_logic_vector(to_unsigned(i, cmd.s1_op2'length));
             end if;
         end loop;
         cmd.s1_in1a <= std_logic_vector(to_unsigned(in1a, cmd.s1_in1a'length));
