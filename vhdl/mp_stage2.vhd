@@ -31,7 +31,7 @@ architecture Structural of mp_stage2 is
     signal a2  : t_data;
     signal b2  : t_data;
     signal val : t_data_array(4 downto 0);
-    signal cmd : t_data_array(4 downto 0);
+    signal cmd : t_vliw;
 begin
 
 a1 <= val_in(to_integer(unsigned(cmd_in.s2_in1a)));
