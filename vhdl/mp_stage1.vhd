@@ -25,7 +25,9 @@ end mp_stage1;
 
 architecture Structural of mp_stage1 is
     signal cmd : t_vliw;
+    signal cmd_out_r : t_vliw;
     signal val : t_data_array(4 downto 0);
+    signal val_out_r : t_data_array(4 downto 0);
     signal arg : t_data_array(4 downto 0);
     signal c1  : t_data;
     signal c2  : t_data;
@@ -45,25 +47,24 @@ begin
     if rising_edge(clk) then
         if rst = '1' then
             cmd <= empty_vliw;
-            cmd_out <= empty_vliw;
+            cmd_out_r <= empty_vliw;
         else
             cmd <= cmd_in;
-            cmd_out <= cmd;
+            cmd_out_r <= cmd;
         end if;
         val <= val_in;
+        val_out_r <= val;
         arg <= arg_in;
         arg_out <= arg;
-        vmux: for i in 4 downto 0 loop
-            if to_integer(unsigned(cmd_in.s1_out1)) = i then
-                val_out(i) <= c1;
-            elsif to_integer(unsigned(cmd_in.s1_out2)) = i then
-                val_out(i) <= c2;
-            else 
-                val_out(i) <= val(i);
-            end if;
-        end loop vmux;
     end if;
 end process p;
+
+cmd_out <= cmd_out_r;
+vmux: for i in 4 downto 0 generate
+    val_out(i) <= c1 when to_integer(unsigned(cmd_out_r.s1_out1)) = i else
+                  c2 when to_integer(unsigned(cmd_out_r.s1_out2)) = i else
+                  val_out_r(i);
+end generate vmux;
 
 complex_alu_1: entity work.complex_alu
 port map(
