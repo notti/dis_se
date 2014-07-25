@@ -14,7 +14,7 @@ WORK = --work=work
 %.o: %.vhd
 	$(GHDL) -a $(GHDLFLAGS) $(LIBS) $(WORK) $<
 
-tb_simple_alu.ghw tb_shift.ghw tb_mp_decode_fetch.ghw tb_mp_indirect_fetch.ghw: %.ghw: %
+tb_complex_alu.ghw tb_simple_alu.ghw tb_shift.ghw tb_mp_decode_fetch.ghw tb_mp_indirect_fetch.ghw: %.ghw: %
 	./$< --wave=$@
 
 export 
@@ -53,3 +53,5 @@ tb_mp_indirect_fetch.o: mp_indirect_fetch.o procedures.o
 tb_shift.o: shift_ra.o shift_rl.o procedures.o
 tb_simple_alu.o: simple_alu.o procedures.o
 simple_alu.o: shift_ra.o shift_rl.o procedures.o
+tb_complex_alu.o: complex_alu.o procedures.o
+complex_alu.o: shift_ra.o shift_rl.o procedures.o
