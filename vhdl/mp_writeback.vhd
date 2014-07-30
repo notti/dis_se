@@ -33,6 +33,7 @@ architecture Structural of mp_writeback is
     signal val : t_data_array(4 downto 0);
     signal arg : t_data_array(4 downto 0);
     signal arg_r : t_data_array(4 downto 0);
+    signal addr : t_data;
 
     signal which : unsigned(2 downto 0) := (others => '0');
     signal which_1 : unsigned(2 downto 0) := (others => '0');
@@ -104,8 +105,17 @@ mem_wr <= '1' when fetch_state = idle and cmd.wb(to_integer(which)) = '1' else
           '1' when fetch_state = write_mem else
           '0';
 mem_addr(9 downto 8) <= cmd.wb_memchunk(to_integer(which));
-mem_addr(7 downto 0) <= arg(to_integer(which)) when fetch_state = idle else
-                        arg_r(to_integer(which));
+mem_addr(7 downto 0) <= addr when cmd.wb_bitrev(to_integer(which)) = "000" else
+                        (0 => addr(1), 1 => addr(0), others => '0') when cmd.wb_bitrev(to_integer(which)) = "001" else
+                        (0 => addr(2), 1 => addr(1), 2 => addr(0), others => '0') when cmd.wb_bitrev(to_integer(which)) = "010" else
+                        (0 => addr(3), 1 => addr(2), 2 => addr(1), 3 => addr(0), others => '0') when cmd.wb_bitrev(to_integer(which)) = "011" else
+                        (0 => addr(4), 1 => addr(3), 2 => addr(2), 3 => addr(1), 4 => addr(0), others => '0') when cmd.wb_bitrev(to_integer(which)) = "100" else
+                        (0 => addr(5), 1 => addr(4), 2 => addr(3), 3 => addr(2), 4 => addr(1), 5 => addr(0), others => '0') when cmd.wb_bitrev(to_integer(which)) = "101" else
+                        (0 => addr(6), 1 => addr(5), 2 => addr(4), 3 => addr(3), 4 => addr(2), 5 => addr(1), 6 => addr(0), others => '0') when cmd.wb_bitrev(to_integer(which)) = "110" else
+                        (0 => addr(7), 1 => addr(6), 2 => addr(5), 3 => addr(4), 4 => addr(3), 5 => addr(2), 6 => addr(1), 7 => addr(0));
+
+addr <= arg(to_integer(which)) when fetch_state = idle else
+        arg_r(to_integer(which));
 mem_data <=  val_in(to_integer(which)) when fetch_state = idle else
              val(to_integer(which));
 

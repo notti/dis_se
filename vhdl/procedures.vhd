@@ -56,6 +56,7 @@ package procedures is
             -- writeback
             wb           : std_logic_vector(4 downto 0);
             wb_memchunk  : t_2array(4 downto 0);
+            wb_bitrev    : t_3array(4 downto 0);
             wb_assign    : t_3array(4 downto 0);
         end record;
     constant empty_vliw : t_vliw := (
@@ -93,6 +94,7 @@ package procedures is
         s3_out2 => (others => '0'),
         wb => (others => '0'),
         wb_assign => (others => (others => '0')),
+        wb_bitrev => (others => (others => '0')),
         wb_memchunk => (others => (others => '0'))
     );
 
