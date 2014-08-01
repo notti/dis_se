@@ -132,7 +132,8 @@ finished <= '1' when fetch_state = idle and start = '1' and cmd_in.mem_fetch(to_
             '1' when fetch_state_1 = store_arg else
             '0';
 cmd_out <= cmd_in when fetch_state = idle and start = '1' and cmd_in.mem_fetch(to_integer(which)) = '0' else 
-           cmd;
+           cmd when fetch_state_1 = store_arg else
+           empty_vliw;
 busy <= '1' when fetch_state = store_arg else -- expand to fetch_state_1?
         '0';
 arg_out <= arg_in when fetch_state = idle and start = '1' else
