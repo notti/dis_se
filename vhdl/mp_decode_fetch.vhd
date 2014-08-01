@@ -32,8 +32,6 @@ entity mp_decode_fetch is
     );
 end mp_decode_fetch;
 
--- 1111WXXX
-
 architecture Structural of mp_decode_fetch is
     type fetch_type is (idle, fetch_mem, fetch_reg, fetch_imm, store_arg, store_cmd);
     signal fetch_state : fetch_type;
@@ -47,17 +45,12 @@ architecture Structural of mp_decode_fetch is
 
     signal which : unsigned(2 downto 0);
     signal which_1 : unsigned(2 downto 0);
+    signal which_n1 : unsigned(2 downto 0);
 
     signal cmd_index : unsigned(2 downto 0);
 
     signal wr_cycle : unsigned(4 downto 0);
 begin
--- argtype
---   00 no arg/last value
---   01 reg
---   10 mem
---   11 imm
-
 cmd_in <= cmd_store(to_integer(unsigned(pdata(2 downto 0))));
 
 state: process(clk)
@@ -77,11 +70,11 @@ begin
                         else
                             cmd <= cmd_in;
                             case cmd_in.arg_type(to_integer(which)) is
-                                when "01" =>
+                                when ARG_REG =>
                                     fetch_state <= fetch_reg;
-                                when "10" =>
+                                when ARG_MEM =>
                                     fetch_state <= fetch_mem;
-                                when "11" =>
+                                when ARG_IMM =>
                                     fetch_state <= fetch_imm;
                                 when others =>
                                     fetch_state <= idle;
@@ -196,12 +189,12 @@ begin
                     if which = 4 then
                         fetch_state <= store_arg; -- optimize fetch_imm case?
                     else
-                        case cmd.arg_type(to_integer(which)) is
-                            when "01" =>
+                        case cmd.arg_type(to_integer(which_n1)) is
+                            when ARG_REG =>
                                 fetch_state <= fetch_reg;
-                            when "10" =>
+                            when ARG_MEM =>
                                 fetch_state <= fetch_mem;
-                            when "11" =>
+                            when ARG_IMM =>
                                 fetch_state <= fetch_imm;
                             when others =>
                                 fetch_state <= store_arg;
@@ -219,12 +212,15 @@ begin
         if rst = '1' then
             which <= (others => '0');
             which_1 <= (others => '0');
+            which_n1 <= (0 => '1', others => '0');
             wr_cycle <= (others => '0');
         else
             if fetch_state = idle or fetch_state = store_arg or which = 4 then
                 which <= (others => '0');
+                which_n1 <= (0 => '1', others => '0');
             else
                 which <= which + 1;
+                which_n1 <= which_n1 + 1;
             end if;
             if wr_cycle = 21 or fetch_state = idle then
                 wr_cycle <= (others => '0');
