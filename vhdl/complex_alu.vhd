@@ -51,25 +51,18 @@ port map(
     b => point_1,
     c => umulshift
 );
--- 0 noop
--- 1 add
--- 2 sub
--- 3 umul
--- 4 smul
--- 5 and
--- 6 or
--- 7 xor
+
 alu: process(clk)
 begin
     if rising_edge(clk) then
         case op is
-            when "001" => 
+            when CALU_ADD => 
                 imm_c <= std_logic_vector(unsigned(a) + unsigned(b));
                 c <= imm_c;
-            when "010" =>
+            when CALU_SUB =>
                 imm_c <= std_logic_vector(unsigned(a) - unsigned(b));
                 c <= imm_c;
-            when "011" =>
+            when CALU_UMUL =>
                 umul <= std_logic_vector(unsigned(a) * unsigned(b));
                 if point_1 = "000" then
                     c <= umulshift(t_data'range);
@@ -78,7 +71,7 @@ begin
                 else
                     c <= umulshift(t_data'range);
                 end if;
-            when "100" =>
+            when CALU_SMUL =>
                 smul <= std_logic_vector(signed(a) * signed(b));
                 if point_1 = "000" then
                     c <= smulshift(t_data'range);
@@ -87,13 +80,13 @@ begin
                 else
                     c <= smulshift(t_data'range);
                 end if;
-            when "101" =>
+            when CALU_AND =>
                 imm_c <= a and b;
                 c <= imm_c;
-            when "110" =>
+            when CALU_OR =>
                 imm_c <= a or b;
                 c <= imm_c;
-            when "111" =>
+            when CALU_XOR =>
                 imm_c <= a xor b;
                 c <= imm_c;
             when others =>

@@ -34,10 +34,10 @@ architecture Structural of mp_stage2 is
     signal cmd : t_vliw;
 begin
 
-a1 <= val_in(to_integer(unsigned(cmd_in.s2_in1a)));
-b1 <= val_in(to_integer(unsigned(cmd_in.s2_in1b)));
-a2 <= val_in(to_integer(unsigned(cmd_in.s2_in2a)));
-b2 <= val_in(to_integer(unsigned(cmd_in.s2_in2b)));
+a1 <= index2val(val_in, cmd_in.s2_in1a);
+b1 <= index2val(val_in, cmd_in.s2_in1b);
+a2 <= index2val(val_in, cmd_in.s2_in2a);
+b2 <= index2val(val_in, cmd_in.s2_in2b);
 
 p: process(clk)
 begin

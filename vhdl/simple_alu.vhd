@@ -23,14 +23,6 @@ architecture Structural of simple_alu is
     signal arith : t_data;
     signal logic : t_data;
 begin
--- 0 noop
--- 1 add
--- 2 sub
--- 3 sar
--- 4 slr
--- 5 and
--- 6 or
--- 7 xor
 
 ashift: entity work.shift_ra
 port map(
@@ -51,13 +43,13 @@ alu: process(clk)
 begin
     if rising_edge(clk) then
         case op is
-            when "001" => c <= std_logic_vector(unsigned(a) + unsigned(b));
-            when "010" => c <= std_logic_vector(unsigned(a) - unsigned(b));
-            when "011" => c <= arith;
-            when "100" => c <= logic;
-            when "101" => c <= a and b;
-            when "110" => c <= a or b;
-            when "111" => c <= a xor b;
+            when SALU_ADD => c <= std_logic_vector(unsigned(a) + unsigned(b));
+            when SALU_SUB => c <= std_logic_vector(unsigned(a) - unsigned(b));
+            when SALU_SAR => c <= arith;
+            when SALU_SLR => c <= logic;
+            when SALU_AND => c <= a and b;
+            when SALU_OR  => c <= a or b;
+            when SALU_XOR => c <= a xor b;
             when others =>
         end case;
     end if;
