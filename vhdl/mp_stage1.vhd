@@ -81,8 +81,8 @@ port map(
 );
 
 vmux: for i in 4 downto 0 generate
-    val_out(i) <= c1 when to_integer(unsigned(cmd_2.s1_out1)) = i else
-                  c2 when to_integer(unsigned(cmd_2.s1_out2)) = i else
+    val_out(i) <= c1 when to_integer(unsigned(cmd_2.s1_out1)) = i and cmd_2.s1_op1 /= CALU_NOOP else
+                  c2 when to_integer(unsigned(cmd_2.s1_out2)) = i and cmd_2.s1_op2 /= CALU_NOOP else
                   val_2(i);
 end generate vmux;
 cmd_out <= cmd_2;

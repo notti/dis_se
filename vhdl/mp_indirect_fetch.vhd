@@ -39,6 +39,7 @@ architecture Structural of mp_indirect_fetch is
 
     signal which : unsigned(2 downto 0) := (others => '0');
     signal which_1 : unsigned(2 downto 0) := (others => '0');
+    signal which_n1 : unsigned(2 downto 0) := (others => '0');
 begin
 
 arg_mux: for i in 4 downto 0 generate
@@ -58,7 +59,7 @@ begin
 					cmd <= cmd_in;
 					arg_r <= arg;
 					arg_out <= arg_in;
-					if cmd_in.last_val = '1' or cmd_in.mem_fetch(to_integer(which)) = '0' then
+					if cmd_in.mem_fetch(to_integer(which)) = '0' then
 						fetch_state <= idle;
 					else
 						fetch_state <= fetch_mem;
@@ -67,7 +68,7 @@ begin
                     if which = 4 then
                         fetch_state <= store_arg;
                     else
-                        if cmd.mem_fetch(to_integer(which)) = '1' then
+                        if cmd.mem_fetch(to_integer(which_n1)) = '1' then
                             fetch_state <= fetch_mem;
                         else
                             fetch_state <= store_arg;
@@ -87,11 +88,17 @@ begin
         if rst = '1' then
             which <= (others => '0');
             which_1 <= (others => '0');
+            which_n1 <= (0 => '1', others => '0');
         else
-            if fetch_state /= fetch_mem then
+            if fetch_state /= fetch_mem or which = 4 then
                 which <= (others => '0');
             else
                 which <= which + 1;
+            end if;
+            if fetch_state /= fetch_mem or which_n1 = 4 then
+                which_n1 <= (0 => '1', others => '0');
+            else
+                which_n1 <= which_n1 + 1;
             end if;
             which_1 <= which;
         end if;
@@ -104,8 +111,12 @@ begin
         if rst = '1' then
             val <= (others => (others => '0'));
         else
-            if fetch_state = idle and cmd_in.last_val = '1' then
-                val <= arg;
+            if fetch_state = idle then
+                for i in 0 to 4 loop
+                    if cmd_in.arg_val(i) = '1' then
+                        val(i) <= arg(i);
+                    end if;
+                end loop;
             elsif fetch_state_1 = fetch_mem then
                 val(to_integer(which_1)) <= mem_data;
             end if;

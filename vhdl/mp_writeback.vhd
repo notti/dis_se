@@ -56,6 +56,8 @@ begin
             case fetch_state is
                 when idle =>
                     cmd_r <= cmd_in;
+                    arg_r <= arg;
+                    val <= val_in;
                     if cmd.wb(to_integer(which_1)) = '0' then
                         fetch_state <= idle;
                     else
@@ -72,8 +74,6 @@ begin
                         end if;
                     end if;
             end case;
-            arg_r <= arg;
-            val <= val_in;
         end if;
     end if;
 end process state;
