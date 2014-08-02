@@ -30,7 +30,7 @@ end r3w1mem;
 architecture Structural of r3w1mem is
     constant addr_max : natural := 2**addra'length-1;
     type mem_t is array(addr_max downto 0) of std_logic_vector(doa'range);
-    signal mem : mem_t := (others => (others => '0'));
+    signal mem : mem_t; -- := (others => (others => '0'));
 begin
 
     assert addra'length = addrb'length report "addra and addrb ranges must match!" severity failure;
