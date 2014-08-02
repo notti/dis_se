@@ -19,8 +19,7 @@ entity mp_writeback is
 
         mem_wr  : out std_logic;
         mem_data : out t_data;
-        mem_addr : out std_logic_vector(9 downto 0);
-        busy    : out std_logic
+        mem_addr : out std_logic_vector(9 downto 0)
     );
 end mp_writeback;
 
@@ -118,8 +117,5 @@ addr <= arg(to_integer(which)) when fetch_state = idle else
         arg_r(to_integer(which));
 mem_data <=  val_in(to_integer(which)) when fetch_state = idle else
              val(to_integer(which));
-
-busy <= '1' when fetch_state = write_mem else
-        '0';
 
 end Structural;

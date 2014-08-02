@@ -125,9 +125,11 @@ package procedures is
         wb_bitrev => (others => (others => '0')),
         wb_memchunk => (others => (others => '0'))
     );
+    constant VLIW_HIGH : natural := 173;
 
     function index2val(signal val: in t_data_array(4 downto 0);
                        signal index: in std_logic_vector(2 downto 0)) return t_data;
+    function slv2vliw(slv: in std_logic_vector(VLIW_HIGH downto 0)) return t_vliw;
 
 end package;
 
@@ -144,6 +146,76 @@ package body procedures is
             when others => res := (others => '0');
         end case;
         return res;
+    end function;
+
+    function slv2vliw(slv: in std_logic_vector(VLIW_HIGH downto 0)) return t_vliw is
+        variable ret : t_vliw;
+    begin
+        ret.arg_type(0)     := slv(1 downto 0);
+        ret.arg_type(1)     := slv(3 downto 2);
+        ret.arg_type(2)     := slv(5 downto 4);
+        ret.arg_type(3)     := slv(7 downto 6);
+        ret.arg_type(4)     := slv(9 downto 8);
+        ret.arg_memchunk(0) := slv(11 downto 10);
+        ret.arg_memchunk(1) := slv(13 downto 12);
+        ret.arg_memchunk(2) := slv(15 downto 14);
+        ret.arg_memchunk(3) := slv(17 downto 16);
+        ret.arg_memchunk(4) := slv(19 downto 18);
+        ret.last_val        := slv(20);
+        ret.arg_assign(0)   := slv(23 downto 21);
+        ret.arg_assign(1)   := slv(26 downto 24);
+        ret.arg_assign(2)   := slv(29 downto 27);
+        ret.arg_assign(3)   := slv(32 downto 30);
+        ret.arg_assign(4)   := slv(35 downto 33);
+        ret.mem_fetch       := slv(40 downto 36);
+        ret.mem_memchunk(0) := slv(42 downto 41);
+        ret.mem_memchunk(1) := slv(44 downto 43);
+        ret.mem_memchunk(2) := slv(46 downto 45);
+        ret.mem_memchunk(3) := slv(48 downto 47);
+        ret.mem_memchunk(4) := slv(50 downto 49);
+        ret.s1_in1a         := slv(53 downto 51);
+        ret.s1_in1b         := slv(56 downto 54);
+        ret.s1_op1          := slv(59 downto 57);
+        ret.s1_point1       := slv(62 downto 60);
+        ret.s1_out1         := slv(65 downto 63);
+        ret.s1_in2a         := slv(68 downto 66);
+        ret.s1_in2b         := slv(71 downto 69);
+        ret.s1_op2          := slv(74 downto 72);
+        ret.s1_point2       := slv(77 downto 75);
+        ret.s1_out2         := slv(80 downto 78);
+        ret.s2_in1a         := slv(83 downto 81);
+        ret.s2_in1b         := slv(86 downto 84);
+        ret.s2_op1          := slv(89 downto 87);
+        ret.s2_out1         := slv(92 downto 90);
+        ret.s2_in2a         := slv(95 downto 93);
+        ret.s2_in2b         := slv(98 downto 96);
+        ret.s2_op2          := slv(101 downto 99);
+        ret.s2_out2         := slv(104 downto 102);
+        ret.s3_in1a         := slv(107 downto 105);
+        ret.s3_in1b         := slv(110 downto 108);
+        ret.s3_op1          := slv(113 downto 111);
+        ret.s3_out1         := slv(116 downto 114);
+        ret.s3_in2a         := slv(119 downto 117);
+        ret.s3_in2b         := slv(122 downto 120);
+        ret.s3_op2          := slv(125 downto 123);
+        ret.s3_out2         := slv(128 downto 126);
+        ret.wb              := slv(133 downto 129);
+        ret.wb_memchunk(0)  := slv(135 downto 134);
+        ret.wb_memchunk(1)  := slv(137 downto 136);
+        ret.wb_memchunk(2)  := slv(139 downto 138);
+        ret.wb_memchunk(3)  := slv(141 downto 140);
+        ret.wb_memchunk(4)  := slv(143 downto 142);
+        ret.wb_bitrev(0)    := slv(146 downto 144);
+        ret.wb_bitrev(1)    := slv(149 downto 147);
+        ret.wb_bitrev(2)    := slv(152 downto 150);
+        ret.wb_bitrev(3)    := slv(155 downto 153);
+        ret.wb_bitrev(4)    := slv(158 downto 156);
+        ret.wb_assign(0)    := slv(161 downto 159);
+        ret.wb_assign(1)    := slv(164 downto 162);
+        ret.wb_assign(2)    := slv(167 downto 165);
+        ret.wb_assign(3)    := slv(170 downto 168);
+        ret.wb_assign(4)    := slv(173 downto 171);
+        return ret;
     end function;
 
 end procedures;

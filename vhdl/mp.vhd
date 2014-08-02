@@ -40,13 +40,10 @@ architecture Structural of mp is
 
     signal df_arg    : t_data_array(4 downto 0);
     signal df_cmd    : t_vliw;
-    signal df_finished : std_logic;
 
     signal if_arg    : t_data_array(4 downto 0);
     signal if_val    : t_data_array(4 downto 0);
     signal if_cmd    : t_vliw;
-    signal if_busy   : std_logic;
-    signal if_finished : std_logic;
 
     signal s1_arg    : t_data_array(4 downto 0);
     signal s1_val    : t_data_array(4 downto 0);
@@ -59,8 +56,6 @@ architecture Structural of mp is
     signal s3_arg    : t_data_array(4 downto 0);
     signal s3_val    : t_data_array(4 downto 0);
     signal s3_cmd    : t_vliw;
-
-    signal wb_busy   : std_logic;
 begin
 
     mp_mem: entity work.r3w1mem
@@ -97,16 +92,14 @@ begin
         reg_rd => reg_rd,
         reg_data => reg_data,
 
-        arg => df_arg,
-        cmd_out => df_cmd,
-        finished => df_finished
+        arg_out => df_arg,
+        cmd_out => df_cmd
     );
 
     s1: entity work.mp_indirect_fetch
     port map(
         rst => rst,
         clk => clk,
-        start => df_finished,
 
         cmd_in => df_cmd,
         arg_in => df_arg,
@@ -117,18 +110,14 @@ begin
 
         arg_out => if_arg,
         val_out => if_val,
-
-        cmd_out => if_cmd,
-        busy => if_busy,
-        finished => if_finished
--- clear cmd?
+        cmd_out => if_cmd
     );
 
     s2: entity work.mp_stage1
     port map(
         rst => rst,
         clk => clk,
--- start?
+
         cmd_in => if_cmd,
         arg_in => if_arg,
         val_in => if_val,
@@ -166,7 +155,7 @@ begin
         cmd_out => s3_cmd
     );
 
-    s5: entity work.mp_writeback
+    s5: entity work.mp_writeback -- fifo?
     port map(
         rst => rst,
         clk => clk,
@@ -177,8 +166,7 @@ begin
 
         mem_wr => mem_wed,
         mem_data => mem_did,
-        mem_addr => mem_addrd,
-        busy => wb_busy
+        mem_addr => mem_addrd
     );
 
 end Structural;

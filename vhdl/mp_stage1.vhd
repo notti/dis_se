@@ -24,11 +24,12 @@ entity mp_stage1 is
 end mp_stage1;
 
 architecture Structural of mp_stage1 is
-    signal cmd : t_vliw;
-    signal cmd_out_r : t_vliw;
-    signal val : t_data_array(4 downto 0);
-    signal val_out_r : t_data_array(4 downto 0);
-    signal arg : t_data_array(4 downto 0);
+    signal cmd_1 : t_vliw;
+    signal cmd_2 : t_vliw;
+    signal val_1 : t_data_array(4 downto 0);
+    signal val_2 : t_data_array(4 downto 0);
+    signal arg_1 : t_data_array(4 downto 0);
+    signal arg_2 : t_data_array(4 downto 0);
     signal c1  : t_data;
     signal c2  : t_data;
     signal a1  : t_data;
@@ -46,25 +47,18 @@ p: process(clk)
 begin
     if rising_edge(clk) then
         if rst = '1' then
-            cmd <= empty_vliw;
-            cmd_out_r <= empty_vliw;
+            cmd_1 <= empty_vliw;
+            cmd_2 <= empty_vliw;
         else
-            cmd <= cmd_in;
-            cmd_out_r <= cmd;
+            cmd_1 <= cmd_in;
+            cmd_2 <= cmd_1;
         end if;
-        val <= val_in;
-        val_out_r <= val;
-        arg <= arg_in;
-        arg_out <= arg;
+        val_1 <= val_in;
+        val_2 <= val_1;
+        arg_1 <= arg_in;
+        arg_2 <= arg_1;
     end if;
 end process p;
-
-cmd_out <= cmd_out_r;
-vmux: for i in 4 downto 0 generate
-    val_out(i) <= c1 when to_integer(unsigned(cmd_out_r.s1_out1)) = i else
-                  c2 when to_integer(unsigned(cmd_out_r.s1_out2)) = i else
-                  val_out_r(i);
-end generate vmux;
 
 complex_alu_1: entity work.complex_alu
 port map(
@@ -85,5 +79,13 @@ port map(
     point => cmd_in.s1_point2,
     c => c2
 );
+
+vmux: for i in 4 downto 0 generate
+    val_out(i) <= c1 when to_integer(unsigned(cmd_2.s1_out1)) = i else
+                  c2 when to_integer(unsigned(cmd_2.s1_out2)) = i else
+                  val_2(i);
+end generate vmux;
+cmd_out <= cmd_2;
+arg_out <= arg_2;
 
 end Structural;

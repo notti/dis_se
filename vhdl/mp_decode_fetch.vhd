@@ -10,196 +10,113 @@ use work.procedures.all;
 
 entity mp_decode_fetch is
     port(
-        rst     : in  std_logic;
-        clk     : in  std_logic;
-        pdata   : in  t_data;
-        pdata_rd : out std_logic;
-        start   : in  std_logic;
-        busy    : out std_logic;
+        rst               : in  std_logic;
+        clk               : in  std_logic;
+        pdata             : in  t_data;
+        pdata_rd          : out std_logic;
+        start             : in  std_logic;
+        busy              : out std_logic;
 
-        -- sync ram 0 clk
-        mem_addr : out std_logic_vector(9 downto 0); 
-        mem_rd   : out std_logic;
-        mem_data : in  t_data;
-        reg_addr : out t_data;
-        reg_rd   : out std_logic;
-        reg_data : in  t_data;
+        mem_addr          : out std_logic_vector(9 downto 0); --FIXME
+        mem_rd            : out std_logic;                    --FIXME
+        mem_data          : in  t_data;                       --FIXME
+        reg_addr          : out t_data;
+        reg_rd            : out std_logic;
+        reg_data          : in  t_data;
 
-        arg      : out t_data_array(4 downto 0);
-
-        cmd_out  : out t_vliw;
-        finished : out std_logic
+        arg_out           : out t_data_array(4 downto 0);
+        cmd_out           : out t_vliw
     );
 end mp_decode_fetch;
 
 architecture Structural of mp_decode_fetch is
-    type fetch_type is (idle, fetch_mem, fetch_reg, fetch_imm, store_arg, store_cmd);
+    type fetch_type is (idle, fetch, store_arg, store_cmd);
     signal fetch_state : fetch_type;
     signal fetch_state_1 : fetch_type;
 
     signal cmd : t_vliw;
-    signal cmd_in : t_vliw;
-    type t_vliw_arr is array (natural range <>) of t_vliw;
-
-    signal cmd_store : t_vliw_arr(7 downto 0);
+    type cmd_store_t is array(7 downto 0) of std_logic_vector(VLIW_HIGH downto 0);
+    signal cmd_store : cmd_store_t;
 
     signal which : unsigned(2 downto 0);
     signal which_1 : unsigned(2 downto 0);
-    signal which_n1 : unsigned(2 downto 0);
 
     signal cmd_index : unsigned(2 downto 0);
 
     signal wr_cycle : unsigned(4 downto 0);
+
+    signal current_arg : std_logic_vector(1 downto 0);
+    signal last_arg    : std_logic_vector(1 downto 0);
+    signal to_store : std_logic_vector(167 downto 0);
+    signal to_store_final : std_logic_vector(VLIW_HIGH downto 0);
+
+    signal store_addr : unsigned(2 downto 0);
+
 begin
-cmd_in <= cmd_store(to_integer(unsigned(pdata(2 downto 0))));
+
+current_arg <= cmd.arg_type(to_integer(which));
+last_arg <= cmd.arg_type(to_integer(which_1));
+to_store_final(167 downto 0) <= to_store;
+to_store_final(VLIW_HIGH downto 168) <= pdata(5 downto 0);
+store_addr <= cmd_index when fetch_state = idle and fetch_state_1 = store_cmd else
+              unsigned(pdata(2 downto 0));
+
+cmd_mem: process(clk)
+begin
+    if rising_edge(clk) then
+        if rst = '1' then
+            cmd <= empty_vliw;
+        else
+            if fetch_state = idle and fetch_state_1 = store_cmd then
+                cmd_store(to_integer(store_addr)) <= to_store_final;
+            end if;
+            if fetch_state = idle and start = '1' and pdata(3) = '1' then
+                cmd <= slv2vliw(cmd_store(to_integer(store_addr)));
+            end if;
+        end if;
+    end if;
+end process;
 
 state: process(clk)
 begin
     if rising_edge(clk) then
         if rst = '1' then
             fetch_state <= idle;
-            fetch_state_1 <= idle;
-            cmd <= empty_vliw;
+            cmd_index <= (others => '0');
+            to_store <= (others => '0');
         else
             case fetch_state is
                 when idle =>
+                    to_store <= (others => '0');
                     if start = '1' then
                         if pdata(3) = '1' then
                             fetch_state <= store_cmd;
                             cmd_index <= unsigned(pdata(2 downto 0));
                         else
-                            cmd <= cmd_in;
-                            case cmd_in.arg_type(to_integer(which)) is
-                                when ARG_REG =>
-                                    fetch_state <= fetch_reg;
-                                when ARG_MEM =>
-                                    fetch_state <= fetch_mem;
-                                when ARG_IMM =>
-                                    fetch_state <= fetch_imm;
-                                when others =>
-                                    fetch_state <= idle;
-                            end case;
+                            fetch_state <= fetch;
+                        end if;
+                    end if;
+                when store_cmd =>
+                    case to_integer(wr_cycle) is
+                        when 0 to 20 =>
+                            to_store(to_integer(wr_cycle+1)*8-1 downto to_integer(wr_cycle)*8) <= pdata;
+                        when others =>
+                            fetch_state <= idle;
+                    end case;
+                when fetch =>
+                    if which = 4 then
+                        fetch_state <= store_arg;
+                    else
+                        if current_arg = ARG_NONE then
+                            if which = 0 then
+                                fetch_state <= idle;
+                            else
+                                fetch_state <= store_arg;
+                            end if;
                         end if;
                     end if;
                 when store_arg =>
                     fetch_state <= idle;
-                when store_cmd =>
-                    case to_integer(wr_cycle) is
-                        when 0 =>
-                            cmd_store(to_integer(cmd_index)).arg_type(0) <= pdata(1 downto 0);
-                            cmd_store(to_integer(cmd_index)).arg_type(1) <= pdata(3 downto 2);
-                            cmd_store(to_integer(cmd_index)).arg_type(2) <= pdata(5 downto 4);
-                            cmd_store(to_integer(cmd_index)).arg_type(3) <= pdata(7 downto 6);
-                        when 1 =>
-                            cmd_store(to_integer(cmd_index)).arg_type(4) <= pdata(1 downto 0);
-                            cmd_store(to_integer(cmd_index)).arg_memchunk(0) <= pdata(3 downto 2);
-                            cmd_store(to_integer(cmd_index)).arg_memchunk(1) <= pdata(5 downto 4);
-                            cmd_store(to_integer(cmd_index)).arg_memchunk(2) <= pdata(7 downto 6);
-                        when 2 =>
-                            cmd_store(to_integer(cmd_index)).arg_memchunk(3) <= pdata(1 downto 0);
-                            cmd_store(to_integer(cmd_index)).arg_memchunk(4) <= pdata(3 downto 2);
-                            cmd_store(to_integer(cmd_index)).last_val <= pdata(4);
-                            cmd_store(to_integer(cmd_index)).arg_assign(0) <= pdata(7 downto 5);
-                        when 3 =>
-                            cmd_store(to_integer(cmd_index)).arg_assign(1) <= pdata(2 downto 0);
-                            cmd_store(to_integer(cmd_index)).arg_assign(2) <= pdata(5 downto 3);
-                            cmd_store(to_integer(cmd_index)).arg_assign(3)(1 downto 0) <= pdata(7 downto 6);
-                        when 4 =>
-                            cmd_store(to_integer(cmd_index)).arg_assign(3)(2) <= pdata(0);
-                            cmd_store(to_integer(cmd_index)).arg_assign(4) <= pdata(3 downto 1);
-                            cmd_store(to_integer(cmd_index)).mem_fetch(3 downto 0) <= pdata(7 downto 4);
-                        when 5 =>
-                            cmd_store(to_integer(cmd_index)).mem_fetch(4) <= pdata(0);
-                            cmd_store(to_integer(cmd_index)).mem_memchunk(0) <= pdata(2 downto 1);
-                            cmd_store(to_integer(cmd_index)).mem_memchunk(1) <= pdata(4 downto 3);
-                            cmd_store(to_integer(cmd_index)).mem_memchunk(2) <= pdata(6 downto 5);
-                            cmd_store(to_integer(cmd_index)).mem_memchunk(3)(0) <= pdata(7);
-                        when 6 =>
-                            cmd_store(to_integer(cmd_index)).mem_memchunk(3)(1) <= pdata(0);
-                            cmd_store(to_integer(cmd_index)).mem_memchunk(4) <= pdata(2 downto 1);
-                            cmd_store(to_integer(cmd_index)).s1_in1a <= pdata(5 downto 3);
-                            cmd_store(to_integer(cmd_index)).s1_in1b(1 downto 0) <= pdata(7 downto 6);
-                        when 7 =>
-                            cmd_store(to_integer(cmd_index)).s1_in1b(2) <= pdata(0);
-                            cmd_store(to_integer(cmd_index)).s1_op1 <= pdata(3 downto 1);
-                            cmd_store(to_integer(cmd_index)).s1_point1 <= pdata(6 downto 4);
-                            cmd_store(to_integer(cmd_index)).s1_out1(0) <= pdata(7);
-                        when 8 =>
-                            cmd_store(to_integer(cmd_index)).s1_out1(2 downto 1) <= pdata(1 downto 0);
-                            cmd_store(to_integer(cmd_index)).s1_in2a <= pdata(4 downto 2);
-                            cmd_store(to_integer(cmd_index)).s1_in2b <= pdata(7 downto 5);
-                        when 9 =>
-                            cmd_store(to_integer(cmd_index)).s1_op2 <= pdata(2 downto 0);
-                            cmd_store(to_integer(cmd_index)).s1_point2 <= pdata(5 downto 3);
-                            cmd_store(to_integer(cmd_index)).s1_out2(1 downto 0) <= pdata(7 downto 6);
-                        when 10 =>
-                            cmd_store(to_integer(cmd_index)).s1_out2(2) <= pdata(0);
-                            cmd_store(to_integer(cmd_index)).s2_in1a <= pdata(3 downto 1);
-                            cmd_store(to_integer(cmd_index)).s2_in1b <= pdata(6 downto 4);
-                            cmd_store(to_integer(cmd_index)).s2_op1(0) <= pdata(7);
-                        when 11 =>
-                            cmd_store(to_integer(cmd_index)).s2_op1(2 downto 1) <= pdata(1 downto 0);
-                            cmd_store(to_integer(cmd_index)).s2_out1 <= pdata(4 downto 2);
-                            cmd_store(to_integer(cmd_index)).s2_in2a <= pdata(7 downto 5);
-                        when 12 =>
-                            cmd_store(to_integer(cmd_index)).s2_in2b <= pdata(2 downto 0);
-                            cmd_store(to_integer(cmd_index)).s2_op2 <= pdata(5 downto 3);
-                            cmd_store(to_integer(cmd_index)).s2_out2(1 downto 0) <= pdata(7 downto 6);
-                        when 13 =>
-                            cmd_store(to_integer(cmd_index)).s2_out2(2) <= pdata(0);
-                            cmd_store(to_integer(cmd_index)).s3_in1a <= pdata(3 downto 1);
-                            cmd_store(to_integer(cmd_index)).s3_in1b <= pdata(6 downto 4);
-                            cmd_store(to_integer(cmd_index)).s3_op1(0) <= pdata(7);
-                        when 14 =>
-                            cmd_store(to_integer(cmd_index)).s3_op1(2 downto 1) <= pdata(1 downto 0);
-                            cmd_store(to_integer(cmd_index)).s3_out1 <= pdata(4 downto 2);
-                            cmd_store(to_integer(cmd_index)).s3_in2a <= pdata(7 downto 5);
-                        when 15 =>
-                            cmd_store(to_integer(cmd_index)).s3_in2b <= pdata(2 downto 0);
-                            cmd_store(to_integer(cmd_index)).s3_op2 <= pdata(5 downto 3);
-                            cmd_store(to_integer(cmd_index)).s3_out2(1 downto 0) <= pdata(7 downto 6);
-                        when 16 =>
-                            cmd_store(to_integer(cmd_index)).s3_out2(2) <= pdata(0);
-                            cmd_store(to_integer(cmd_index)).wb(4 downto 0) <= pdata(5 downto 1);
-                            cmd_store(to_integer(cmd_index)).wb_memchunk(0) <= pdata(7 downto 6);
-                        when 17 =>
-                            cmd_store(to_integer(cmd_index)).wb_memchunk(1) <= pdata(1 downto 0);
-                            cmd_store(to_integer(cmd_index)).wb_memchunk(2) <= pdata(3 downto 2);
-                            cmd_store(to_integer(cmd_index)).wb_memchunk(3) <= pdata(5 downto 4);
-                            cmd_store(to_integer(cmd_index)).wb_memchunk(4) <= pdata(7 downto 6);
-                        when 18 =>
-                            cmd_store(to_integer(cmd_index)).wb_bitrev(0) <= pdata(2 downto 0);
-                            cmd_store(to_integer(cmd_index)).wb_bitrev(1) <= pdata(5 downto 3);
-                            cmd_store(to_integer(cmd_index)).wb_bitrev(2)(1 downto 0) <= pdata(7 downto 6);
-                        when 19 =>
-                            cmd_store(to_integer(cmd_index)).wb_bitrev(2)(2) <= pdata(0);
-                            cmd_store(to_integer(cmd_index)).wb_bitrev(3) <= pdata(3 downto 1);
-                            cmd_store(to_integer(cmd_index)).wb_bitrev(4) <= pdata(6 downto 4);
-                            cmd_store(to_integer(cmd_index)).wb_assign(0)(0) <= pdata(7);
-                        when 20 =>
-                            cmd_store(to_integer(cmd_index)).wb_assign(0)(2 downto 1) <= pdata(1 downto 0);
-                            cmd_store(to_integer(cmd_index)).wb_assign(1) <= pdata(4 downto 2);
-                            cmd_store(to_integer(cmd_index)).wb_assign(2) <= pdata(7 downto 5);
-                        when others =>
-                            cmd_store(to_integer(cmd_index)).wb_assign(3) <= pdata(2 downto 0);
-                            cmd_store(to_integer(cmd_index)).wb_assign(4) <= pdata(5 downto 3);
-                            fetch_state <= idle;
-                    end case;
-                when others =>
-                    if which = 4 then
-                        fetch_state <= store_arg; -- optimize fetch_imm case?
-                    else
-                        case cmd.arg_type(to_integer(which_n1)) is
-                            when ARG_REG =>
-                                fetch_state <= fetch_reg;
-                            when ARG_MEM =>
-                                fetch_state <= fetch_mem;
-                            when ARG_IMM =>
-                                fetch_state <= fetch_imm;
-                            when others =>
-                                fetch_state <= store_arg;
-                        end case;
-                    end if;
             end case;
             fetch_state_1 <= fetch_state;
         end if;
@@ -212,15 +129,12 @@ begin
         if rst = '1' then
             which <= (others => '0');
             which_1 <= (others => '0');
-            which_n1 <= (0 => '1', others => '0');
             wr_cycle <= (others => '0');
         else
-            if fetch_state = idle or fetch_state = store_arg or which = 4 then
+            if fetch_state /= fetch or which = 4 then
                 which <= (others => '0');
-                which_n1 <= (0 => '1', others => '0');
             else
                 which <= which + 1;
-                which_n1 <= which_n1 + 1;
             end if;
             if wr_cycle = 21 or fetch_state = idle then
                 wr_cycle <= (others => '0');
@@ -236,35 +150,34 @@ store: process(clk)
 begin
     if rising_edge(clk) then
         if rst = '1' then
-            arg <= (others => (others => '0'));
+            arg_out <= (others => (others => '0'));
         else
-            if fetch_state = fetch_imm then
-                arg(to_integer(which)) <= pdata;
-            elsif fetch_state_1 = fetch_reg then 
-                arg(to_integer(which_1)) <= reg_data;
-            elsif fetch_state_1 = fetch_mem then
-                arg(to_integer(which_1)) <= mem_data;
+            if fetch_state = fetch and current_arg = ARG_IMM then
+                arg_out(to_integer(which)) <= pdata;
+            elsif fetch_state_1 = fetch then
+                if last_arg = ARG_REG then
+                    arg_out(to_integer(which_1)) <= reg_data;
+                else
+                    arg_out(to_integer(which_1)) <= mem_data;
+                end if;
             end if;
         end if;
     end if;
 end process store;
 
-mem_rd <= '1' when fetch_state = fetch_mem else
+mem_rd <= '1' when fetch_state = fetch and current_arg = ARG_MEM else
           '0';
-reg_rd <= '1' when fetch_state = fetch_reg else
+reg_rd <= '1' when fetch_state = fetch and current_arg = ARG_REG else
           '0';
-pdata_rd <= '1' when fetch_state = fetch_mem or fetch_state = fetch_reg or fetch_state = fetch_imm or fetch_state = store_cmd else
+pdata_rd <= '1' when fetch_state = fetch else
             '0';
 mem_addr(9 downto 8) <= cmd.arg_memchunk(to_integer(which));
 mem_addr(7 downto 0) <= pdata;
 reg_addr <= pdata;
 
-finished <= '1' when fetch_state = idle and start = '1' and cmd_in.arg_type(to_integer(which)) = "00" else
-            '1' when fetch_state_1 = store_arg else
-            '0';
-cmd_out <= cmd_in when fetch_state = idle and start = '1' and cmd_in.arg_type(to_integer(which)) = "00" else 
-           cmd;
-busy <= '1' when fetch_state = store_arg else -- expand to fetch_state_1?
+cmd_out <= cmd when fetch_state_1 = store_arg or (current_arg = ARG_NONE and which = 0 and fetch_state = fetch) else 
+           empty_vliw;
+busy <= '1' when fetch_state = store_arg else
         '0';
 
 end Structural;

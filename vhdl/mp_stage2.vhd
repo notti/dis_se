@@ -30,8 +30,8 @@ architecture Structural of mp_stage2 is
     signal b1  : t_data;
     signal a2  : t_data;
     signal b2  : t_data;
-    signal val : t_data_array(4 downto 0);
-    signal cmd : t_vliw;
+    signal val_1 : t_data_array(4 downto 0);
+    signal cmd_1 : t_vliw;
 begin
 
 a1 <= index2val(val_in, cmd_in.s2_in1a);
@@ -43,21 +43,14 @@ p: process(clk)
 begin
     if rising_edge(clk) then
         if rst = '1' then
-            cmd <= empty_vliw;
+            cmd_1 <= empty_vliw;
         else
-            cmd <= cmd_in;
+            cmd_1 <= cmd_in;
         end if;
         arg_out <= arg_in;
-        val <= val_in;
+        val_1 <= val_in;
     end if;
 end process p;
-
-cmd_out <= cmd;
-vmux: for i in 4 downto 0 generate
-    val_out(i) <= c1 when to_integer(unsigned(cmd.s2_out1)) = i else
-                  c2 when to_integer(unsigned(cmd.s2_out2)) = i else
-                  val(i);
-end generate vmux;
 
 simple_alu_1: entity work.simple_alu
 port map(
@@ -76,5 +69,12 @@ port map(
     op => cmd_in.s2_op2,
     c => c2
 );
+
+vmux: for i in 4 downto 0 generate
+    val_out(i) <= c1 when to_integer(unsigned(cmd_1.s2_out1)) = i else
+                  c2 when to_integer(unsigned(cmd_1.s2_out2)) = i else
+                  val_1(i);
+end generate vmux;
+cmd_out <= cmd_1;
 
 end Structural;
