@@ -39,7 +39,6 @@ architecture Structural of mp_indirect_fetch is
 
     signal which : unsigned(2 downto 0) := (others => '0');
     signal which_1 : unsigned(2 downto 0) := (others => '0');
-    signal which_n1 : unsigned(2 downto 0) := (others => '0');
 begin
 
 arg_mux: for i in 4 downto 0 generate
@@ -59,7 +58,7 @@ begin
 					cmd <= cmd_in;
 					arg_r <= arg;
 					arg_out <= arg_in;
-					if cmd_in.mem_fetch(to_integer(which)) = '0' then
+					if cmd_in.mem_fetch(0) = '0' then
 						fetch_state <= idle;
 					else
 						fetch_state <= fetch_mem;
@@ -67,13 +66,12 @@ begin
                 when fetch_mem =>
                     if which = 4 then
                         fetch_state <= store_arg;
-                    else
-                        if cmd.mem_fetch(to_integer(which_n1)) = '1' then
-                            fetch_state <= fetch_mem;
-                        else
+                    end if;
+                    for i in 0 to 3 loop
+                        if which = i and cmd.mem_fetch(i+1) = '0' then
                             fetch_state <= store_arg;
                         end if;
-                    end if;
+                    end loop;
                 when store_arg =>
                     fetch_state <= idle;
             end case;
@@ -88,17 +86,11 @@ begin
         if rst = '1' then
             which <= (others => '0');
             which_1 <= (others => '0');
-            which_n1 <= (0 => '1', others => '0');
         else
             if fetch_state /= fetch_mem or which = 4 then
                 which <= (others => '0');
             else
                 which <= which + 1;
-            end if;
-            if fetch_state /= fetch_mem or which_n1 = 4 then
-                which_n1 <= (0 => '1', others => '0');
-            else
-                which_n1 <= which_n1 + 1;
             end if;
             which_1 <= which;
         end if;
@@ -118,7 +110,11 @@ begin
                     end if;
                 end loop;
             elsif fetch_state_1 = fetch_mem then
-                val(to_integer(which_1)) <= mem_data;
+                for i in 0 to 4 loop
+                    if to_integer(which_1) = i then
+                        val(i) <= mem_data;
+                    end if;
+                end loop;
             end if;
         end if;
     end if;

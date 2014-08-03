@@ -86,6 +86,9 @@ package procedures is
             wb_memchunk  : t_2array(4 downto 0);
             wb_bitrev    : t_3array(4 downto 0);
             wb_assign    : t_3array(4 downto 0); -- do we need that?
+
+            -- ctrl
+            noop         : std_logic;
         end record;
     constant empty_vliw : t_vliw := (
         arg_type => (others => (others => '0')),
@@ -123,7 +126,8 @@ package procedures is
         wb => (others => '0'),
         wb_assign => (others => (others => '0')),
         wb_bitrev => (others => (others => '0')),
-        wb_memchunk => (others => (others => '0'))
+        wb_memchunk => (others => (others => '0')),
+        noop => '1'
     );
     constant VLIW_HIGH : natural := 177;
 
@@ -216,6 +220,7 @@ package body procedures is
         ret.wb_assign(2)    := slv(171 downto 169);
         ret.wb_assign(3)    := slv(174 downto 172);
         ret.wb_assign(4)    := slv(177 downto 175);
+        ret.noop            := '0';
         return ret;
     end function;
 

@@ -100,21 +100,19 @@ begin
                         end if;
                     end if;
                 when fetch_cmd =>
-                    case to_integer(wr_cycle) is
-                        when 0 to 21 =>
-                            to_store(to_integer(wr_cycle+1)*8-1 downto to_integer(wr_cycle)*8) <= pdata;
-                        when others =>
-                            fetch_state <= store_cmd;
-                    end case;
-                when fetch =>
-                    if which = 4 then
-                        fetch_state <= store_arg;
-                    else
-                        if which = 0 and current_arg = ARG_NONE then
-                            fetch_state <= idle;
-                        elsif next_arg = ARG_NONE then
-                            fetch_state <= store_arg;
+                    for i in 0 to 21 loop
+                        if to_integer(wr_cycle) = i then
+                            to_store((i+1)*8-1 downto i*8) <= pdata;
                         end if;
+                    end loop;
+                    if to_integer(wr_cycle) = 22 then
+                        fetch_state <= store_cmd;
+                    end if;
+                when fetch =>
+                    if which = 0 and current_arg = ARG_NONE then
+                        fetch_state <= idle;
+                    elsif which = 4 or next_arg = ARG_NONE then
+                        fetch_state <= store_arg;
                     end if;
                 when store_arg =>
                     fetch_state <= idle;
@@ -161,15 +159,15 @@ begin
         if rst = '1' then
             arg_out <= (others => (others => '0'));
         else
-            if fetch_state = fetch and current_arg = ARG_IMM then
-                arg_out(to_integer(which)) <= pdata;
-            elsif fetch_state_1 = fetch then
-                if last_arg = ARG_REG then
-                    arg_out(to_integer(which_1)) <= reg_data;
-                elsif last_arg = ARG_MEM then
-                    arg_out(to_integer(which_1)) <= mem_data;
+            for i in 0 to 4 loop
+                if i = to_integer(which) and fetch_state = fetch and current_arg = ARG_IMM then
+                    arg_out(i) <= pdata;
+                elsif i = to_integer(which_1) and fetch_state_1 = fetch and last_arg = ARG_REG then
+                    arg_out(i) <= reg_data;
+                elsif i = to_integer(which_1) and fetch_state_1 = fetch and last_arg = ARG_MEM then
+                    arg_out(i) <= mem_data;
                 end if;
-            end if;
+            end loop;
         end if;
     end if;
 end process store;

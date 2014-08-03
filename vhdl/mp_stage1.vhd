@@ -28,6 +28,7 @@ architecture Structural of mp_stage1 is
     signal cmd_2 : t_vliw;
     signal val_1 : t_data_array(4 downto 0);
     signal val_2 : t_data_array(4 downto 0);
+    signal val   : t_data_array(4 downto 0);
     signal arg_1 : t_data_array(4 downto 0);
     signal arg_2 : t_data_array(4 downto 0);
     signal c1  : t_data;
@@ -36,6 +37,7 @@ architecture Structural of mp_stage1 is
     signal b1  : t_data;
     signal a2  : t_data;
     signal b2  : t_data;
+    signal bypass : std_logic;
 begin
 
 a1 <= index2val(val_in, cmd_in.s1_in1a);
@@ -50,7 +52,11 @@ begin
             cmd_1 <= empty_vliw;
             cmd_2 <= empty_vliw;
         else
-            cmd_1 <= cmd_in;
+            if bypass = '1' then
+                cmd_1 <= empty_vliw;
+            else
+                cmd_1 <= cmd_in;
+            end if;
             cmd_2 <= cmd_1;
         end if;
         val_1 <= val_in;
@@ -80,12 +86,20 @@ port map(
     c => c2
 );
 
+bypass <= '1' when cmd_in.noop = '0' and cmd_in.s1_op1 = CALU_NOOP and cmd_in.s1_op2 = CALU_NOOP and cmd_2.noop = '1' else
+          '0';
+
 vmux: for i in 4 downto 0 generate
-    val_out(i) <= c1 when to_integer(unsigned(cmd_2.s1_out1)) = i and cmd_2.s1_op1 /= CALU_NOOP else
-                  c2 when to_integer(unsigned(cmd_2.s1_out2)) = i and cmd_2.s1_op2 /= CALU_NOOP else
-                  val_2(i);
+    val(i) <= c1 when to_integer(unsigned(cmd_2.s1_out1)) = i and cmd_2.s1_op1 /= CALU_NOOP else
+              c2 when to_integer(unsigned(cmd_2.s1_out2)) = i and cmd_2.s1_op2 /= CALU_NOOP else
+              val_2(i);
 end generate vmux;
-cmd_out <= cmd_2;
-arg_out <= arg_2;
+
+val_out <= val_in when bypass = '1' else
+           val;
+cmd_out <= cmd_in when bypass = '1' else
+           cmd_2;
+arg_out <= arg_in when bypass = '1' else
+           arg_2;
 
 end Structural;

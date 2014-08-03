@@ -24,8 +24,8 @@ entity mp_writeback is
 end mp_writeback;
 
 architecture Structural of mp_writeback is
-    type fetch_type is (idle, write_mem);
-    signal fetch_state : fetch_type;
+    type write_type is (idle, write_mem);
+    signal write_state : write_type;
 
     signal cmd : t_vliw;
     signal cmd_r : t_vliw;
@@ -35,44 +35,40 @@ architecture Structural of mp_writeback is
     signal addr : t_data;
 
     signal which : unsigned(2 downto 0) := (others => '0');
-    signal which_1 : unsigned(2 downto 0) := (others => '0');
 begin
 
 arg_mux: for i in 4 downto 0 generate
    arg(i) <= arg_in(to_integer(unsigned(cmd_in.wb_assign(i))));
 end generate arg_mux;
 
-cmd <= cmd_in when fetch_state = idle else
+cmd <= cmd_in when write_state = idle else
        cmd_r;
 
 state: process(clk)
 begin
     if rising_edge(clk) then
         if rst = '1' then
-            fetch_state <= idle;
+            write_state <= idle;
             cmd_r <= empty_vliw;
             arg_r <= (others => (others => '0'));
         else
-            case fetch_state is
+            case write_state is
                 when idle =>
                     cmd_r <= cmd_in;
                     arg_r <= arg;
                     val <= val_in;
-                    if cmd.wb(to_integer(which_1)) = '0' then
-                        fetch_state <= idle;
-                    else
-                        fetch_state <= write_mem;
+                    if cmd.wb(1) = '1' then
+                        write_state <= write_mem;
                     end if;
                 when write_mem =>
                     if which = 4 then
-                        fetch_state <= idle;
-                    else
-                        if cmd.wb(to_integer(which_1)) = '1' then
-                            fetch_state <= write_mem;
-                        else
-                            fetch_state <= idle;
-                        end if;
+                        write_state <= idle;
                     end if;
+                    for i in 0 to 3 loop
+                        if which = i and cmd.wb(i+1) = '0' then
+                            write_state <= idle;
+                        end if;
+                    end loop;
             end case;
         end if;
     end if;
@@ -83,25 +79,22 @@ begin
     if rising_edge(clk) then
         if rst = '1' then
             which <= (others => '0');
-            which_1 <= "001";
         else
-            if cmd.wb(to_integer(which_1)) = '0' or which = 4 then
-                which <= (others => '0');
-                which_1 <= "001";
-            else
-                which <= which + 1;
-                if which_1 = 4 then
-                    which_1 <= "001";
-                else
-                    which_1 <= which_1 + 1;
+            which <= which + 1;
+            for i in 0 to 3 loop
+                if which = i and cmd.wb(i+1) = '0' then
+                    which <= (others => '0');
                 end if;
+            end loop;
+            if which = 4 then
+                which <= (others => '0');
             end if;
         end if;
     end if;
 end process which_cnt;
 
-mem_wr <= '1' when fetch_state = idle and cmd.wb(to_integer(which)) = '1' else
-          '1' when fetch_state = write_mem else
+mem_wr <= '1' when write_state = idle and cmd.wb(0) = '1' else
+          '1' when write_state = write_mem else
           '0';
 mem_addr(9 downto 8) <= cmd.wb_memchunk(to_integer(which));
 mem_addr(7 downto 0) <= addr when cmd.wb_bitrev(to_integer(which)) = "000" else
@@ -113,9 +106,9 @@ mem_addr(7 downto 0) <= addr when cmd.wb_bitrev(to_integer(which)) = "000" else
                         (0 => addr(6), 1 => addr(5), 2 => addr(4), 3 => addr(3), 4 => addr(2), 5 => addr(1), 6 => addr(0), others => '0') when cmd.wb_bitrev(to_integer(which)) = "110" else
                         (0 => addr(7), 1 => addr(6), 2 => addr(5), 3 => addr(4), 4 => addr(3), 5 => addr(2), 6 => addr(1), 7 => addr(0));
 
-addr <= arg(to_integer(which)) when fetch_state = idle else
+addr <= arg(to_integer(which)) when write_state = idle else
         arg_r(to_integer(which));
-mem_data <=  val_in(to_integer(which)) when fetch_state = idle else
-             val(to_integer(which));
+mem_data <= val_in(to_integer(which)) when write_state = idle else
+            val(to_integer(which));
 
 end Structural;
