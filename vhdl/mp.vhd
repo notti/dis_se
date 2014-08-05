@@ -13,7 +13,7 @@ entity mp is
         rst     : in  std_logic;
         clk     : in  std_logic;
         clk2x   : in  std_logic;
-        pdata   : in  t_data;
+        pdata   : in  t_data2;
         pdata_rd : out std_logic;
         start   : in  std_logic;
         busy    : out std_logic;
@@ -25,9 +25,12 @@ entity mp is
         mem_enb   : in std_logic;
         mem_dob : out t_data;
 
-        reg_addr : out t_data;
-        reg_rd   : out std_logic;
-        reg_data : in  t_data
+        reg_addra : out t_data;
+        reg_ena   : out std_logic;
+        reg_doa   : in  t_data;
+        reg_addrb : out t_data;
+        reg_enb   : out std_logic;
+        reg_dob   : in  t_data
     );
 end mp;
 
@@ -110,12 +113,18 @@ begin
         start => start,
         busy => busy,
 
-        mem_addr => mem_addrc,
-        mem_rd => mem_enc,
-        mem_data => mem_doc,
-        reg_addr => reg_addr,
-        reg_rd => reg_rd,
-        reg_data => reg_data,
+        mem_addra => mem_addrc,
+        mem_ena => mem_enc,
+        mem_doa => mem_doc,
+        mem_addrb => mem_addrd,
+        mem_enb => mem_end,
+        mem_dob => mem_dod,
+        reg_addra => reg_addra,
+        reg_ena => reg_ena,
+        reg_doa => reg_doa,
+        reg_addrb => reg_addrb,
+        reg_enb => reg_enb,
+        reg_dob => reg_dob,
 
         arg_out => df_arg,
         cmd_out => df_cmd

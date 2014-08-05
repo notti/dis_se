@@ -12,17 +12,24 @@ entity mp_decode_fetch is
     port(
         rst               : in  std_logic;
         clk               : in  std_logic;
-        pdata             : in  t_data;
+        pdata             : in  t_data2;
         pdata_rd          : out std_logic;
         start             : in  std_logic;
         busy              : out std_logic;
 
-        mem_addr          : out std_logic_vector(9 downto 0); --FIXME
-        mem_rd            : out std_logic;                    --FIXME
-        mem_data          : in  t_data;                       --FIXME
-        reg_addr          : out t_data;
-        reg_rd            : out std_logic;
-        reg_data          : in  t_data;
+        mem_addra         : out std_logic_vector(9 downto 0);
+        mem_ena           : out std_logic;
+        mem_doa           : in  t_data;
+        mem_addrb         : out std_logic_vector(9 downto 0);
+        mem_enb           : out std_logic;
+        mem_dob           : in  t_data;
+
+        reg_addra         : out t_data;
+        reg_ena           : out std_logic;
+        reg_doa           : in  t_data;
+        reg_addrb         : out t_data;
+        reg_enb           : out std_logic;
+        reg_dob           : in  t_data;
 
         arg_out           : out t_data_array(4 downto 0);
         cmd_out           : out t_vliw
@@ -30,7 +37,7 @@ entity mp_decode_fetch is
 end mp_decode_fetch;
 
 architecture Structural of mp_decode_fetch is
-    type fetch_type is (idle, fetch, store_arg, fetch_cmd, store_cmd);
+    type fetch_type is (idle, fetcha, fetchb, fetchc, store_arg, fetch_cmd, store_cmd);
     signal fetch_state : fetch_type;
     signal fetch_state_1 : fetch_type;
 
@@ -38,47 +45,24 @@ architecture Structural of mp_decode_fetch is
     type cmd_store_t is array(7 downto 0) of std_logic_vector(VLIW_HIGH downto 0);
     signal cmd_store : cmd_store_t;
 
-    signal which : unsigned(2 downto 0);
-    signal which_1 : unsigned(2 downto 0);
-    signal which_n1 : unsigned(2 downto 0);
-
     signal cmd_index : unsigned(2 downto 0);
 
     signal wr_cycle : unsigned(4 downto 0);
 
-    signal current_arg : std_logic_vector(1 downto 0);
-    signal last_arg    : std_logic_vector(1 downto 0);
-    signal next_arg    : std_logic_vector(1 downto 0);
     signal to_store : std_logic_vector(175 downto 0);
     signal to_store_final : std_logic_vector(VLIW_HIGH downto 0);
 
     signal store_addr : unsigned(2 downto 0);
 
+    signal to_fetch : t_2array(1 downto 0);
+    signal memchunk : t_2array(1 downto 0);
+
 begin
 
-current_arg <= cmd.arg_type(to_integer(which));
-last_arg <= cmd.arg_type(to_integer(which_1));
-next_arg <= cmd.arg_type(to_integer(which_n1));
 to_store_final(175 downto 0) <= to_store;
 to_store_final(VLIW_HIGH downto 176) <= pdata(1 downto 0);
-store_addr <= cmd_index when fetch_state = fetch_cmd and to_integer(wr_cycle) = 22 else
+store_addr <= cmd_index when fetch_state = fetch_cmd and to_integer(wr_cycle) = 11 else
               unsigned(pdata(2 downto 0));
-
-cmd_mem: process(clk)
-begin
-    if rising_edge(clk) then
-        if rst = '1' then
-            cmd <= empty_vliw;
-        else
-            if fetch_state = fetch_cmd and to_integer(wr_cycle) = 22 then
-                cmd_store(to_integer(store_addr)) <= to_store_final;
-            end if;
-            if fetch_state = idle and start = '1' and pdata(3) = '0' then
-                cmd <= slv2vliw(cmd_store(to_integer(store_addr)));
-            end if;
-        end if;
-    end if;
-end process;
 
 state: process(clk)
 begin
@@ -87,6 +71,8 @@ begin
             fetch_state <= idle;
             cmd_index <= (others => '0');
             to_store <= (others => '0');
+            to_fetch <= (others => ARG_NONE);
+            cmd <= empty_vliw;
         else
             case fetch_state is
                 when idle =>
@@ -96,24 +82,45 @@ begin
                             fetch_state <= fetch_cmd;
                             cmd_index <= unsigned(pdata(2 downto 0));
                         else
-                            fetch_state <= fetch;
+                            fetch_state <= fetcha;
+                            cmd <= slv2vliw(cmd_store(to_integer(store_addr)));
+                            to_fetch(0) <= cmd_store(to_integer(store_addr))(1 downto 0); --FIXME
+                            to_fetch(1) <= cmd_store(to_integer(store_addr))(3 downto 2);
+                            memchunk(0) <= cmd_store(to_integer(store_addr))(11 downto 10);
+                            memchunk(1) <= cmd_store(to_integer(store_addr))(13 downto 12);
                         end if;
                     end if;
                 when fetch_cmd =>
-                    for i in 0 to 21 loop
+                    for i in 0 to 10 loop
                         if to_integer(wr_cycle) = i then
-                            to_store((i+1)*8-1 downto i*8) <= pdata;
+                            to_store((i+1)*16-1 downto i*16) <= pdata;
                         end if;
                     end loop;
-                    if to_integer(wr_cycle) = 22 then
+                    if to_integer(wr_cycle) = 11 then
+                        cmd_store(to_integer(store_addr)) <= to_store_final;
                         fetch_state <= store_cmd;
                     end if;
-                when fetch =>
-                    if which = 0 and current_arg = ARG_NONE then
+                when fetcha =>
+                    memchunk <= cmd.arg_memchunk(3 downto 2);
+                    if to_fetch(0) = ARG_NONE then
+                        to_fetch <= (others => ARG_NONE);
                         fetch_state <= idle;
-                    elsif which = 4 or next_arg = ARG_NONE then
-                        fetch_state <= store_arg;
+                    else
+                        to_fetch <= cmd.arg_type(3 downto 2);
+                        fetch_state <= fetchb;
                     end if;
+                when fetchb =>
+                    memchunk(0) <= cmd.arg_memchunk(4);
+                    if to_fetch(0) = ARG_NONE then
+                        to_fetch <= (others => ARG_NONE);
+                        fetch_state <= store_arg;
+                    else
+                        to_fetch <= (1 => ARG_NONE, 0 => cmd.arg_type(4));
+                        fetch_state <= fetchc;
+                    end if;
+                when fetchc =>
+                    to_fetch <= (others => ARG_NONE);
+                    fetch_state <= store_arg;
                 when store_arg =>
                     fetch_state <= idle;
                 when store_cmd =>
@@ -124,34 +131,20 @@ begin
     end if;
 end process state;
 
-which_cnt: process(clk)
+wr_cnt: process(clk)
 begin
     if rising_edge(clk) then
         if rst = '1' then
-            which <= (others => '0');
-            which_1 <= (others => '0');
-            which_n1 <= (0 => '1', others => '0');
             wr_cycle <= (others => '0');
         else
-            if fetch_state /= fetch or which = 4 then
-                which <= (others => '0');
-            else
-                which <= which + 1;
-            end if;
-            if fetch_state /= fetch or which_n1 = 4 then
-                which_n1 <= (0 => '1', others => '0');
-            else
-                which_n1 <= which_n1 + 1;
-            end if;
-            if wr_cycle = 22 or fetch_state /= fetch_cmd then
+            if wr_cycle = 11 or fetch_state /= fetch_cmd then
                 wr_cycle <= (others => '0');
             else
                 wr_cycle <= wr_cycle + 1;
             end if;
-            which_1 <= which;
         end if;
     end if;
-end process which_cnt;
+end process wr_cnt;
 
 store: process(clk)
 begin
@@ -159,30 +152,75 @@ begin
         if rst = '1' then
             arg_out <= (others => (others => '0'));
         else
-            for i in 0 to 4 loop
-                if i = to_integer(which) and fetch_state = fetch and current_arg = ARG_IMM then
-                    arg_out(i) <= pdata;
-                elsif i = to_integer(which_1) and fetch_state_1 = fetch and last_arg = ARG_REG then
-                    arg_out(i) <= reg_data;
-                elsif i = to_integer(which_1) and fetch_state_1 = fetch and last_arg = ARG_MEM then
-                    arg_out(i) <= mem_data;
+            if fetch_state = fetcha then
+                if to_fetch(0) = ARG_IMM then
+                    arg_out(0) <= pdata(7 downto 0);
                 end if;
-            end loop;
+                if to_fetch(1) = ARG_IMM then
+                    arg_out(1) <= pdata(15 downto 8);
+                end if;
+            elsif fetch_state = fetchb then
+                if to_fetch(0) = ARG_IMM then
+                    arg_out(2) <= pdata(7 downto 0);
+                end if;
+                if to_fetch(1) = ARG_IMM then
+                    arg_out(3) <= pdata(15 downto 8);
+                end if;
+            elsif fetch_state = fetchc then
+                if to_fetch(0) = ARG_IMM then
+                    arg_out(4) <= pdata(7 downto 0);
+                end if;
+            elsif fetch_state_1 = fetcha then
+                if to_fetch(0) = ARG_REG then
+                    arg_out(0) <= reg_doa;
+                elsif to_fetch(0) = ARG_MEM then
+                    arg_out(0) <= mem_doa;
+                end if;
+                if to_fetch(1) = ARG_REG then
+                    arg_out(1) <= reg_dob;
+                elsif to_fetch(1) = ARG_MEM then
+                    arg_out(1) <= mem_dob;
+                end if;
+            elsif fetch_state_1 = fetchb then
+                if to_fetch(0) = ARG_REG then
+                    arg_out(2) <= reg_doa;
+                elsif to_fetch(0) = ARG_MEM then
+                    arg_out(2) <= mem_doa;
+                end if;
+                if to_fetch(1) = ARG_REG then
+                    arg_out(3) <= reg_dob;
+                elsif to_fetch(1) = ARG_MEM then
+                    arg_out(3) <= mem_dob;
+                end if;
+            elsif fetch_state_1 = fetchc then
+                if to_fetch(0) = ARG_REG then
+                    arg_out(4) <= reg_doa;
+                elsif to_fetch(0) = ARG_MEM then
+                    arg_out(4) <= mem_doa;
+                end if;
+            end if;
         end if;
     end if;
 end process store;
 
-mem_rd <= '1' when fetch_state = fetch and current_arg = ARG_MEM else
-          '0';
-reg_rd <= '1' when fetch_state = fetch and current_arg = ARG_REG else
-          '0';
-pdata_rd <= '1' when fetch_state = fetch or fetch_state = fetch_cmd else
+mem_ena <= '1' when to_fetch(0) = ARG_MEM else
+           '0';
+mem_enb <= '1' when to_fetch(1) = ARG_MEM else
+           '0';
+reg_ena <= '1' when to_fetch(0) = ARG_REG else
+           '0';
+reg_enb <= '1' when to_fetch(1) = ARG_REG else
+           '0';
+pdata_rd <= '1' when fetch_state = fetcha or fetch_state = fetchb or fetch_state = fetchc or fetch_state = fetch_cmd else
             '0';
-mem_addr(9 downto 8) <= cmd.arg_memchunk(to_integer(which));
-mem_addr(7 downto 0) <= pdata;
-reg_addr <= pdata;
+mem_addra(9 downto 8) <= memchunk(0);
+mem_addrb(9 downto 8) <= memchunk(1);
+mem_addra(7 downto 0) <= pdata(7 downto 0);
+mem_addrb(7 downto 0) <= pdata(15 downto 8);
+reg_addra <= pdata(7 downto 0);
+reg_addrb <= pdata(15 downto 8);
 
-cmd_out <= cmd when fetch_state_1 = store_arg or (current_arg = ARG_NONE and which = 0 and fetch_state = fetch) else 
+cmd_out <= cmd when fetch_state_1 = store_arg or (to_fetch(0) = ARG_NONE and fetch_state = fetcha) else 
            empty_vliw;
 busy <= '1' when fetch_state = store_arg or fetch_state = store_cmd else
         '0';

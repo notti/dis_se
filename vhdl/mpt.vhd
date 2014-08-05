@@ -11,7 +11,7 @@ entity mpt is
     port(
         rst     : in  std_logic;
         clk     : in  std_logic;
-        pdata   : in  t_data;
+        pdata   : in  t_data2;
         pdata_rd : out std_logic;
         start   : in  std_logic;
         busy    : out std_logic;
@@ -23,9 +23,12 @@ entity mpt is
         mem_enb   : in std_logic;
         mem_dob : out t_data;
 
-        reg_addr : out t_data;
-        reg_rd   : out std_logic;
-        reg_data : in  t_data
+        reg_addra : out t_data;
+        reg_ena   : out std_logic;
+        reg_doa   : in  t_data;
+        reg_addrb : out t_data;
+        reg_enb   : out std_logic;
+        reg_dob   : in  t_data
     );
 end mpt;
 
@@ -62,8 +65,11 @@ begin
         mem_enb => mem_enb,
         mem_dob => mem_dob,
 
-        reg_addr => reg_addr,
-        reg_rd => reg_rd,
-        reg_data => reg_data
+        reg_addra => reg_addra,
+        reg_ena => reg_ena,
+        reg_doa => reg_doa,
+        reg_addrb => reg_addrb,
+        reg_enb => reg_enb,
+        reg_dob => reg_dob
     );
 end Structural;
