@@ -19,12 +19,16 @@ architecture behav of tb_mp is
        signal pdata_rd : std_logic := '0';
        signal start   :  std_logic := '0';
        signal busy    :  std_logic := '0';
-       signal mem_addr :  std_logic_vector(9 downto 0) := (others => '0'); 
-       signal mem_en   :  std_logic := '0';
-       signal mem_data :  t_data := (others => '0');
+       signal mem_addra :  std_logic_vector(9 downto 0) := (others => '0'); 
+       signal mem_ena   :  std_logic := '0';
+       signal mem_doa :  t_data := (others => '0');
+       signal mem_addrb :  std_logic_vector(9 downto 0) := (others => '0'); 
+       signal mem_enb   :  std_logic := '0';
+       signal mem_dob :  t_data := (others => '0');
        signal reg_addr :  t_data := (others => '0');
        signal reg_rd   :  std_logic := '0';
        signal reg_data :  t_data := (others => '0');
+       signal clk2x   : std_logic := '0';
 
 
        procedure prog_cmd(cmd     : in t_vliw;
@@ -1085,8 +1089,16 @@ begin
     
     clock: process
     begin
-        clk <= '0', '1' after 10 ns;
-        wait for 20 ns;
+        clk <= '0';
+        clk2x <= '1';
+        wait for 5 ns;
+        clk2x <= '0';
+        wait for 5 ns;
+        clk <= '1';
+        clk2x <= '1';
+        wait for 5 ns;
+        clk2x <= '0';
+        wait for 5 ns;
     end process clock;
 
     cnt: process(clk)
@@ -1116,6 +1128,7 @@ begin
         variable l : line;
     begin
         wait for 10 ns;
+        wait for 1 ps;
         wait for 40 ns;
         rst <= '0';
 
@@ -1429,21 +1442,17 @@ begin
 
         wait for 140 ns;
         
-        mem_en <= '1';
+        mem_ena <= '1';
+        mem_enb <= '1';
         for i in 0 to 255 loop
-            mem_addr <= "10" & std_logic_vector(to_unsigned(i, 8));
+            mem_addra <= "10" & std_logic_vector(to_unsigned(i, 8));
+            mem_addrb <= "11" & std_logic_vector(to_unsigned(i, 8));
             wait for 20 ns;
         end loop;
-        mem_en <= '0';
+        mem_ena <= '0';
+        mem_enb <= '0';
 
         wait for 60 ns;
-
-        mem_en <= '1';
-        for i in 0 to 255 loop
-            mem_addr <= "11" & std_logic_vector(to_unsigned(i, 8));
-            wait for 20 ns;
-        end loop;
-        mem_en <= '0';
 
         assert false report "stop load: " & integer'image(load_cycles) & " run: " & integer'image(run_cycles) severity failure;
     end process;
@@ -1452,13 +1461,17 @@ begin
     port map(
         rst => rst,
         clk => clk,
+        clk2x => clk2x,
         pdata => pdata,
         pdata_rd => pdata_rd,
         start => start,
         busy => busy,
-        mem_addr => mem_addr,
-        mem_en => mem_en,
-        mem_data => mem_data,
+        mem_addra => mem_addra,
+        mem_ena => mem_ena,
+        mem_doa => mem_doa,
+        mem_addrb => mem_addrb,
+        mem_enb => mem_enb,
+        mem_dob => mem_dob,
         reg_addr => reg_addr,
         reg_rd => reg_rd,
         reg_data => reg_data

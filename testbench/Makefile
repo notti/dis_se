@@ -14,7 +14,7 @@ WORK = --work=work
 %.o: %.vhd
 	$(GHDL) -a $(GHDLFLAGS) $(LIBS) $(WORK) $<
 
-tb_mp.ghw tb_mp_writeback.ghw tb_mp_stage3.ghw tb_mp_stage2.ghw tb_mp_stage1.ghw tb_complex_alu.ghw tb_simple_alu.ghw tb_shift.ghw tb_mp_decode_fetch.ghw tb_mp_indirect_fetch.ghw: %.ghw: %
+tb_p4mem1k8t.ghw tb_mp.ghw tb_mp_writeback.ghw tb_mp_stage3.ghw tb_mp_stage2.ghw tb_mp_stage1.ghw tb_complex_alu.ghw tb_simple_alu.ghw tb_shift.ghw tb_mp_decode_fetch.ghw tb_mp_indirect_fetch.ghw: %.ghw: %
 	./$< --wave=$@
 
 export 
@@ -63,6 +63,10 @@ tb_mp_stage3.o: mp_stage3.o
 mp_stage3.o: simple_alu.o procedures.o
 tb_mp_writeback.o: mp_writeback.o procedures.o
 mp_writeback.o: procedures.o
-mp.o: procedures.o r3w1mem.o mp_decode_fetch.o mp_indirect_fetch.o mp_stage1.o mp_stage2.o mp_stage3.o mp_writeback.o
+mp.o: procedures.o r6w2mem1k8.o mp_decode_fetch.o mp_indirect_fetch.o mp_stage1.o mp_stage2.o mp_stage3.o mp_writeback.o
 r3w1mem.o: procedures.o
 tb_mp.o: procedures.o mp.o
+tb_p4mem1k8T.o: procedures.o p4mem1k8T.o
+p4mem1k8T.o: procedures.o p4mem1k8.o
+p4mem1k8.o: procedures.o
+r6w2mem1k8.o: procedures.o p4mem1k8.o
