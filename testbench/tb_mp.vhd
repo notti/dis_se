@@ -15,7 +15,7 @@ end tb_mp;
 architecture behav of tb_mp is
        signal rst     :  std_logic := '1';
        signal clk     :  std_logic := '0';
-       signal pdata   :  t_data := (others => '0');
+       signal pdata   :  t_data2 := (others => '0');
        signal pdata_rd : std_logic := '0';
        signal start   :  std_logic := '0';
        signal busy    :  std_logic := '0';
@@ -25,28 +25,31 @@ architecture behav of tb_mp is
        signal mem_addrb :  std_logic_vector(9 downto 0) := (others => '0'); 
        signal mem_enb   :  std_logic := '0';
        signal mem_dob :  t_data := (others => '0');
-       signal reg_addr :  t_data := (others => '0');
-       signal reg_rd   :  std_logic := '0';
-       signal reg_data :  t_data := (others => '0');
+       signal reg_addra:  t_data := (others => '0');
+       signal reg_ena  :  std_logic := '0';
+       signal reg_doa  :  t_data := (others => '0');
+       signal reg_addrb:  t_data := (others => '0');
+       signal reg_enb  :  std_logic := '0';
+       signal reg_dob  :  t_data := (others => '0');
        signal clk2x   : std_logic := '0';
 
 
        procedure prog_cmd(cmd     : in t_vliw;
                         which     : in natural;
                         signal start   : out std_logic;
-                        signal pdata   : out t_data) is
+                        signal pdata   : out t_data2) is
            variable tmp : std_logic_vector(VLIW_HIGH downto 0);
        begin
            tmp := vliw2slv(cmd);
            start <= '1';
-           pdata <= "11111" & std_logic_vector(to_unsigned(which, 3));
+           pdata <= "1111111111111" & std_logic_vector(to_unsigned(which, 3));
            wait for 20 ns;
            start <= '0';
-           for i in 0 to VLIW_HIGH/8-1 loop
-               pdata <= tmp((i+1)*8-1 downto i*8);
+           for i in 0 to VLIW_HIGH/16-1 loop
+               pdata <= tmp((i+1)*16-1 downto i*16);
                wait for 20 ns;
            end loop;
-           pdata(VLIW_HIGH mod 8 downto 0) <= tmp(VLIW_HIGH downto (VLIW_HIGH/8)*8);
+           pdata(VLIW_HIGH mod 8 downto 0) <= tmp(VLIW_HIGH downto (VLIW_HIGH/16)*16);
            wait for 40 ns;
        end procedure;
 
@@ -1117,8 +1120,11 @@ begin
     begin
         if rising_edge(clk) then
             if rst = '0' then
-                if reg_rd = '1' then
-                    reg_data <= reg_file(to_integer(unsigned(reg_addr)));
+                if reg_ena = '1' then
+                    reg_doa <= reg_file(to_integer(unsigned(reg_addra)));
+                end if;
+                if reg_enb = '1' then
+                    reg_dob <= reg_file(to_integer(unsigned(reg_addrb)));
                 end if;
             end if;
         end if;
@@ -1399,40 +1405,36 @@ begin
 
         cnt_load <= '1';
         for i in 0 to 127 loop
-            pdata <= "11100000";
+            pdata <= "1111111111100000";
             start <= '1';
             wait for 20 ns;
             start <= '0';
-            pdata <= std_logic_vector(to_signed(sine_wave(i*2), 8));
+            pdata(7 downto 0) <= std_logic_vector(to_signed(sine_wave(i*2), 8));
+            pdata(15 downto 8) <= std_logic_vector(to_signed(sine_wave(i*2+1), 8));
             wait for 20 ns;
-            pdata <= std_logic_vector(to_signed(sine_wave(i*2+1), 8));
-            wait for 20 ns;
-            pdata <= std_logic_vector(to_signed(i*2, 8));
-            wait for 20 ns;
-            pdata <= std_logic_vector(to_signed(i*2+1, 8));
+            pdata(7 downto 0) <= std_logic_vector(to_signed(i*2, 8));
+            pdata(15 downto 8) <= std_logic_vector(to_signed(i*2+1, 8));
             wait for 40 ns;
         end loop;
         cnt_load <= '0';
 
         cnt_run <= '1';
         for i in 0 to 1023 loop
-            pdata <= "11100001";
+            pdata <= "1111111111100001";
             start <= '1';
-            wait for 20 ns;
-            start <= '0';
             reg_file(0) <= std_logic_vector(to_unsigned(bflys(i)(0), 8));
             reg_file(1) <= std_logic_vector(to_unsigned(bflys(i)(1), 8));
             reg_file(2) <= std_logic_vector(to_signed(bflys(i)(2), 8));
             reg_file(3) <= std_logic_vector(to_signed(bflys(i)(3), 8));
-            pdata <= "00000000";
             wait for 20 ns;
-            pdata <= "00000001";
+            start <= '0';
+            pdata(7 downto 0) <= "00000000";
+            pdata(15 downto 8) <= "00000001";
             wait for 20 ns;
-            pdata <= "00000010";
-            wait for 20 ns;
-            pdata <= "00000011";
+            pdata(7 downto 0) <= "00000010";
+            pdata(15 downto 8) <= "00000011";
             wait for 200 ns;
-            pdata <= "11100010";
+            pdata <= "1111111111100010";
             start <= '1';
             wait for 20 ns;
             start <= '0';
@@ -1448,6 +1450,7 @@ begin
             mem_addra <= "10" & std_logic_vector(to_unsigned(i, 8));
             mem_addrb <= "11" & std_logic_vector(to_unsigned(i, 8));
             wait for 20 ns;
+            assert false report integer'image(to_integer(signed(mem_doa))) & ", " & integer'image(to_integer(signed(mem_dob))) severity note;
         end loop;
         mem_ena <= '0';
         mem_enb <= '0';
@@ -1472,9 +1475,12 @@ begin
         mem_addrb => mem_addrb,
         mem_enb => mem_enb,
         mem_dob => mem_dob,
-        reg_addr => reg_addr,
-        reg_rd => reg_rd,
-        reg_data => reg_data
+        reg_addra => reg_addra,
+        reg_ena => reg_ena,
+        reg_doa => reg_doa,
+        reg_addrb => reg_addrb,
+        reg_enb => reg_enb,
+        reg_dob => reg_dob
     );
 
 end behav;

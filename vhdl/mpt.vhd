@@ -34,7 +34,6 @@ end mpt;
 
 architecture Structural of mpt is
     signal rst_i : std_logic;
-    signal locked : std_logic;
     signal clk2x_i : std_logic;
     signal clk_i : std_logic;
 begin

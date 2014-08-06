@@ -55,6 +55,7 @@ architecture Structural of mp_decode_fetch is
     signal store_addr : unsigned(2 downto 0);
 
     signal to_fetch : t_2array(1 downto 0);
+    signal to_fetch_1 : t_2array(1 downto 0);
     signal memchunk : t_2array(1 downto 0);
 
 begin
@@ -72,6 +73,7 @@ begin
             cmd_index <= (others => '0');
             to_store <= (others => '0');
             to_fetch <= (others => ARG_NONE);
+            to_fetch_1 <= (others => ARG_NONE);
             cmd <= empty_vliw;
         else
             case fetch_state is
@@ -84,7 +86,7 @@ begin
                         else
                             fetch_state <= fetcha;
                             cmd <= slv2vliw(cmd_store(to_integer(store_addr)));
-                            to_fetch(0) <= cmd_store(to_integer(store_addr))(1 downto 0); --FIXME
+                            to_fetch(0) <= cmd_store(to_integer(store_addr))(1 downto 0);
                             to_fetch(1) <= cmd_store(to_integer(store_addr))(3 downto 2);
                             memchunk(0) <= cmd_store(to_integer(store_addr))(11 downto 10);
                             memchunk(1) <= cmd_store(to_integer(store_addr))(13 downto 12);
@@ -102,7 +104,7 @@ begin
                     end if;
                 when fetcha =>
                     memchunk <= cmd.arg_memchunk(3 downto 2);
-                    if to_fetch(0) = ARG_NONE then
+                    if cmd.arg_type(2) = ARG_NONE then
                         to_fetch <= (others => ARG_NONE);
                         fetch_state <= idle;
                     else
@@ -111,7 +113,7 @@ begin
                     end if;
                 when fetchb =>
                     memchunk(0) <= cmd.arg_memchunk(4);
-                    if to_fetch(0) = ARG_NONE then
+                    if cmd.arg_type(4) = ARG_NONE then
                         to_fetch <= (others => ARG_NONE);
                         fetch_state <= store_arg;
                     else
@@ -127,6 +129,7 @@ begin
                     fetch_state <= idle;
             end case;
             fetch_state_1 <= fetch_state;
+            to_fetch_1 <= to_fetch;
         end if;
     end if;
 end process state;
@@ -152,51 +155,48 @@ begin
         if rst = '1' then
             arg_out <= (others => (others => '0'));
         else
-            if fetch_state = fetcha then
-                if to_fetch(0) = ARG_IMM then
+            if to_fetch(0) = ARG_IMM then
+                if fetch_state = fetcha then
                     arg_out(0) <= pdata(7 downto 0);
-                end if;
-                if to_fetch(1) = ARG_IMM then
-                    arg_out(1) <= pdata(15 downto 8);
-                end if;
-            elsif fetch_state = fetchb then
-                if to_fetch(0) = ARG_IMM then
+                elsif fetch_state = fetchb then
                     arg_out(2) <= pdata(7 downto 0);
-                end if;
-                if to_fetch(1) = ARG_IMM then
-                    arg_out(3) <= pdata(15 downto 8);
-                end if;
-            elsif fetch_state = fetchc then
-                if to_fetch(0) = ARG_IMM then
+                elsif fetch_state = fetchc then
                     arg_out(4) <= pdata(7 downto 0);
                 end if;
-            elsif fetch_state_1 = fetcha then
-                if to_fetch(0) = ARG_REG then
+            elsif to_fetch_1(0) = ARG_REG then
+                if fetch_state_1 = fetcha then
                     arg_out(0) <= reg_doa;
-                elsif to_fetch(0) = ARG_MEM then
-                    arg_out(0) <= mem_doa;
-                end if;
-                if to_fetch(1) = ARG_REG then
-                    arg_out(1) <= reg_dob;
-                elsif to_fetch(1) = ARG_MEM then
-                    arg_out(1) <= mem_dob;
-                end if;
-            elsif fetch_state_1 = fetchb then
-                if to_fetch(0) = ARG_REG then
+                elsif fetch_state_1 = fetchb then
                     arg_out(2) <= reg_doa;
-                elsif to_fetch(0) = ARG_MEM then
-                    arg_out(2) <= mem_doa;
-                end if;
-                if to_fetch(1) = ARG_REG then
-                    arg_out(3) <= reg_dob;
-                elsif to_fetch(1) = ARG_MEM then
-                    arg_out(3) <= mem_dob;
-                end if;
-            elsif fetch_state_1 = fetchc then
-                if to_fetch(0) = ARG_REG then
+                elsif fetch_state_1 = fetchc then
                     arg_out(4) <= reg_doa;
-                elsif to_fetch(0) = ARG_MEM then
+                end if;
+            elsif to_fetch_1(0) = ARG_MEM then
+                if fetch_state_1 = fetcha then
+                    arg_out(0) <= mem_doa;
+                elsif fetch_state_1 = fetchb then
+                    arg_out(2) <= mem_doa;
+                elsif fetch_state_1 = fetchc then
                     arg_out(4) <= mem_doa;
+                end if;
+            end if;
+            if to_fetch(1) = ARG_IMM then
+                if fetch_state = fetcha then
+                    arg_out(1) <= pdata(15 downto 8);
+                elsif fetch_state = fetchb then
+                    arg_out(3) <= pdata(15 downto 8);
+                end if;
+            elsif to_fetch_1(1) = ARG_REG then
+                if fetch_state_1 = fetcha then
+                    arg_out(1) <= reg_dob;
+                elsif fetch_state_1 = fetchb then
+                    arg_out(3) <= reg_dob;
+                end if;
+            elsif to_fetch_1(1) = ARG_MEM then
+                if fetch_state_1 = fetcha then
+                    arg_out(1) <= mem_dob;
+                elsif fetch_state_1 = fetchb then
+                    arg_out(3) <= mem_dob;
                 end if;
             end if;
         end if;

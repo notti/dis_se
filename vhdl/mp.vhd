@@ -138,9 +138,12 @@ begin
         cmd_in => df_cmd,
         arg_in => df_arg,
 
-        mem_addr => mem_addre,
-        mem_rd => mem_ene,
-        mem_data => mem_doe,
+        mem_addra => mem_addre,
+        mem_ena => mem_ene,
+        mem_doa => mem_doe,
+        mem_addrb => mem_addrf,
+        mem_enb => mem_enf,
+        mem_dob => mem_dof,
 
         arg_out => if_arg,
         val_out => if_val,
@@ -198,9 +201,12 @@ begin
         arg_in => s3_arg,
         val_in => s3_val,
 
-        mem_wr => mem_weg,
-        mem_data => mem_dig,
-        mem_addr => mem_addrg
+        mem_wea => mem_weg,
+        mem_dia => mem_dig,
+        mem_addra => mem_addrg,
+        mem_web => mem_weh,
+        mem_dib => mem_dih,
+        mem_addrb => mem_addrh
     );
 
 end Structural;

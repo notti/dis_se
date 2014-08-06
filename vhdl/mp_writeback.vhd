@@ -17,36 +17,32 @@ entity mp_writeback is
         arg_in  : in  t_data_array(4 downto 0);
         val_in  : in  t_data_array(4 downto 0);
 
-        mem_wr  : out std_logic;
-        mem_data : out t_data;
-        mem_addr : out std_logic_vector(9 downto 0)
+        mem_wea  : out std_logic;
+        mem_dia  : out t_data;
+        mem_addra : out std_logic_vector(9 downto 0);
+        mem_web  : out std_logic;
+        mem_dib  : out t_data;
+        mem_addrb : out std_logic_vector(9 downto 0)
     );
 end mp_writeback;
 
 architecture Structural of mp_writeback is
-    type write_type is (idle, write_mem);
+    type write_type is (idle, writea, writeb, writec);
     signal write_state : write_type;
 
     signal cmd : t_vliw;
     signal cmd_r : t_vliw;
     signal val : t_data_array(4 downto 0);
+    signal w_val : t_data_array(1 downto 0);
     signal arg : t_data_array(4 downto 0);
-    signal addr_r : t_data_array(4 downto 0);
-    signal addr : t_data_array(4 downto 0);
-
-    signal which : unsigned(2 downto 0) := (others => '0');
+    signal arg_r : t_data_array(4 downto 0);
+    signal addr : t_data_array(1 downto 0);
+    signal wb : std_logic_vector(1 downto 0);
+    signal memchunk : t_2array(1 downto 0);
 begin
 
 arg_mux: for i in 4 downto 0 generate
-   arg(i) <= arg_in(to_integer(unsigned(cmd_in.wb_assign(i))));
-   addr(i) <= arg(i) when cmd_in.wb_bitrev(i) = "000" else
-              (0 => arg(i)(1), 1 => arg(i)(0), others => '0') when cmd_in.wb_bitrev(i) = "001" else
-              (0 => arg(i)(2), 1 => arg(i)(1), 2 => arg(i)(0), others => '0') when cmd_in.wb_bitrev(i) = "010" else
-              (0 => arg(i)(3), 1 => arg(i)(2), 2 => arg(i)(1), 3 => arg(i)(0), others => '0') when cmd_in.wb_bitrev(i) = "011" else
-              (0 => arg(i)(4), 1 => arg(i)(3), 2 => arg(i)(2), 3 => arg(i)(1), 4 => arg(i)(0), others => '0') when cmd_in.wb_bitrev(i) = "100" else
-              (0 => arg(i)(5), 1 => arg(i)(4), 2 => arg(i)(3), 3 => arg(i)(2), 4 => arg(i)(1), 5 => arg(i)(0), others => '0') when cmd_in.wb_bitrev(i) = "101" else
-              (0 => arg(i)(6), 1 => arg(i)(5), 2 => arg(i)(4), 3 => arg(i)(3), 4 => arg(i)(2), 5 => arg(i)(1), 6 => arg(i)(0), others => '0') when cmd_in.wb_bitrev(i) = "110" else
-              (0 => arg(i)(7), 1 => arg(i)(6), 2 => arg(i)(5), 3 => arg(i)(4), 4 => arg(i)(3), 5 => arg(i)(2), 6 => arg(i)(1), 7 => arg(i)(0));
+   arg(i) <= bitrev(arg_in(to_integer(unsigned(cmd_in.wb_assign(i)))), cmd_in.wb_bitrev(i));
 end generate arg_mux;
 
 state: process(clk)
@@ -55,48 +51,57 @@ begin
         if rst = '1' then
             write_state <= idle;
             cmd <= empty_vliw;
+            wb <= (others => '0');
         else
             case write_state is
                 when idle =>
                     cmd <= cmd_in;
-                    addr_r <= addr;
+                    arg_r <= arg;
                     val <= val_in;
+                    addr <= arg(1 downto 0);
+                    w_val <= val_in(1 downto 0);
                     if cmd_in.wb(0) = '1' then
-                        write_state <= write_mem;
+                        wb <= cmd_in.wb(1 downto 0);
+                        write_state <= writea;
+                        memchunk <= cmd_in.wb_memchunk(1 downto 0);
                     end if;
-                when write_mem =>
-                    if which = 4 then
+                when writea =>
+                    addr <= arg_r(3 downto 2);
+                    memchunk <= cmd.wb_memchunk(3 downto 2);
+                    w_val <= val(3 downto 2);
+                    if cmd.wb(2) = '1' then
+                        wb <= cmd.wb(3 downto 2);
+                        write_state <= writeb;
+                    else
+                        wb <= (others => '0');
                         write_state <= idle;
                     end if;
-                    for i in 0 to 3 loop
-                        if which = i and cmd.wb(i+1) = '0' then
-                            write_state <= idle;
-                        end if;
-                    end loop;
+                when writeb =>
+                    addr(0) <= arg_r(4);
+                    memchunk(0) <= cmd.wb_memchunk(4);
+                    w_val(0) <= val(4);
+                    if cmd.wb(2) = '1' then
+                        wb <= (0 => cmd.wb(4), others => '0');
+                        write_state <= writec;
+                    else
+                        wb <= (others => '0');
+                        write_state <= idle;
+                    end if;
+                when writec =>
+                    write_state <= idle;
+                    wb <= (others => '0');
             end case;
         end if;
     end if;
 end process state;
 
-which_cnt: process(clk)
-begin
-    if rising_edge(clk) then
-        if rst = '1' then
-            which <= (others => '0');
-        else
-            if write_state = idle or which = 4 then
-                which <= (others => '0');
-            elsif write_state = write_mem then
-                which <= which + 1;
-            end if;
-        end if;
-    end if;
-end process which_cnt;
-
-mem_wr <= '1' when write_state = write_mem else
-          '0';
-mem_addr(9 downto 8) <= cmd.wb_memchunk(to_integer(which));
-mem_addr(7 downto 0) <= addr_r(to_integer(which));
-mem_data <= val(to_integer(which));
+mem_wea <= wb(0);
+mem_web <= wb(1);
+mem_addra(9 downto 8) <= memchunk(0);
+mem_addra(7 downto 0) <= addr(0);
+mem_addrb(9 downto 8) <= memchunk(1);
+mem_addrb(7 downto 0) <= addr(1);
+mem_dia <= w_val(0);
+mem_dib <= w_val(1);
 
 end Structural;

@@ -16,9 +16,12 @@ entity mp_indirect_fetch is
         cmd_in  : in t_vliw;
         arg_in  : in t_data_array(4 downto 0);
 
-        mem_addr : out std_logic_vector(9 downto 0); 
-        mem_rd   : out std_logic;
-        mem_data : in  t_data;
+        mem_addra: out std_logic_vector(9 downto 0); 
+        mem_ena  : out std_logic;
+        mem_doa  : in  t_data;
+        mem_addrb: out std_logic_vector(9 downto 0); 
+        mem_enb  : out std_logic;
+        mem_dob  : in  t_data;
 
         arg_out  : out t_data_array(4 downto 0);
         val_out  : out t_data_array(4 downto 0);
@@ -28,7 +31,7 @@ entity mp_indirect_fetch is
 end mp_indirect_fetch;
 
 architecture Structural of mp_indirect_fetch is
-    type fetch_type is (idle, fetch_mem, store_arg);
+    type fetch_type is (idle, fetcha, fetchb, fetchc, store_arg);
     signal fetch_state : fetch_type;
     signal fetch_state_1 : fetch_type;
 
@@ -37,8 +40,11 @@ architecture Structural of mp_indirect_fetch is
     signal arg : t_data_array(4 downto 0);
     signal arg_r : t_data_array(4 downto 0);
 
-    signal which : unsigned(2 downto 0) := (others => '0');
-    signal which_1 : unsigned(2 downto 0) := (others => '0');
+    signal addr : t_data_array(1 downto 0);
+
+    signal to_fetch : std_logic_vector(1 downto 0);
+    signal to_fetch_1 : std_logic_vector(1 downto 0);
+    signal memchunk : t_2array(1 downto 0);
 begin
 
 arg_mux: for i in 4 downto 0 generate
@@ -52,50 +58,52 @@ begin
             fetch_state <= idle;
             fetch_state_1 <= idle;
             cmd <= empty_vliw;
+            to_fetch <= (others => '0');
         else
             case fetch_state is
                 when idle =>
 					cmd <= cmd_in;
 					arg_r <= arg;
 					arg_out <= arg_in;
+                    addr <= arg(1 downto 0);
+                    memchunk <= cmd_in.mem_memchunk(1 downto 0);
 					if cmd_in.mem_fetch(0) = '0' then
 						fetch_state <= idle;
 					else
-						fetch_state <= fetch_mem;
+						fetch_state <= fetcha;
+                        to_fetch <= cmd_in.mem_fetch(1 downto 0);
 					end if;
-                when fetch_mem =>
-                    if which = 4 then
+                when fetcha =>
+                    addr <= arg_r(3 downto 2);
+                    memchunk <= cmd.mem_memchunk(3 downto 2);
+                    if cmd.mem_fetch(2) = '0' then
+                        to_fetch <= (others => '0');
                         fetch_state <= store_arg;
+                    else
+                        to_fetch <= cmd.mem_fetch(3 downto 2);
+                        fetch_state <= fetchb;
                     end if;
-                    for i in 0 to 3 loop
-                        if which = i and cmd.mem_fetch(i+1) = '0' then
-                            fetch_state <= store_arg;
-                        end if;
-                    end loop;
+                when fetchb => 
+                    addr(0) <= arg_r(4);
+                    memchunk(0) <= cmd.mem_memchunk(4);
+                    if cmd.mem_fetch(4) = '0' then
+                        to_fetch <= (others => '0');
+                        fetch_state <= store_arg;
+                    else
+                        to_fetch <= (0 => cmd.mem_fetch(4), others => '0');
+                        fetch_state <= fetchc;
+                    end if;
+                when fetchc =>
+                    fetch_state <= store_arg;
+                    to_fetch <= (others => '0');
                 when store_arg =>
                     fetch_state <= idle;
             end case;
             fetch_state_1 <= fetch_state;
+            to_fetch_1 <= to_fetch;
         end if;
     end if;
 end process state;
-
-which_cnt: process(clk)
-begin
-    if rising_edge(clk) then
-        if rst = '1' then
-            which <= (others => '0');
-            which_1 <= (others => '0');
-        else
-            if fetch_state /= fetch_mem or which = 4 then
-                which <= (others => '0');
-            else
-                which <= which + 1;
-            end if;
-            which_1 <= which;
-        end if;
-    end if;
-end process which_cnt;
 
 store: process(clk)
 begin
@@ -109,21 +117,35 @@ begin
                         val(i) <= arg(i);
                     end if;
                 end loop;
-            elsif fetch_state_1 = fetch_mem then
-                for i in 0 to 4 loop
-                    if to_integer(which_1) = i then
-                        val(i) <= mem_data;
-                    end if;
-                end loop;
+            elsif fetch_state_1 = fetcha then
+                if to_fetch_1(0) = '1' then
+                    val(0) <= mem_doa;
+                end if;
+                if to_fetch_1(1) = '1' then
+                    val(1) <= mem_dob;
+                end if;
+            elsif fetch_state_1 = fetchb then
+                if to_fetch_1(0) = '1' then
+                    val(2) <= mem_doa;
+                end if;
+                if to_fetch_1(1) = '1' then
+                    val(3) <= mem_dob;
+                end if;
+            elsif fetch_state_1 = fetchc then
+                if to_fetch_1(0) = '1' then
+                    val(4) <= mem_doa;
+                end if;
             end if;
         end if;
     end if;
 end process store;
 
-mem_rd <= '1' when fetch_state = fetch_mem else
-          '0';
-mem_addr(9 downto 8) <= cmd.mem_memchunk(to_integer(which));
-mem_addr(7 downto 0) <= arg_r(to_integer(which));
+mem_ena <= to_fetch(0);
+mem_enb <= to_fetch(1);
+mem_addra(9 downto 8) <= memchunk(0);
+mem_addra(7 downto 0) <= addr(0);
+mem_addrb(9 downto 8) <= memchunk(1);
+mem_addrb(7 downto 0) <= addr(1);
 
 cmd_out <= cmd when fetch_state = idle else
            empty_vliw;

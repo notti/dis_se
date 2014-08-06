@@ -137,6 +137,7 @@ package procedures is
                        signal index: in std_logic_vector(2 downto 0)) return t_data;
     function slv2vliw(slv: in std_logic_vector(VLIW_HIGH downto 0)) return t_vliw;
     function vliw2slv(vliw: in t_vliw) return std_logic_vector;
+    function bitrev(a: in t_data; b: in std_logic_vector(2 downto 0)) return t_data;
 
 end package;
 
@@ -293,6 +294,22 @@ package body procedures is
         ret(171 downto 169) := vliw.wb_assign(2);
         ret(174 downto 172) := vliw.wb_assign(3);
         ret(177 downto 175) := vliw.wb_assign(4);
+        return ret;
+    end function;
+
+    function bitrev(a: in t_data; b: in std_logic_vector(2 downto 0)) return t_data is
+        variable ret : t_data;
+    begin
+        case b is
+            when "000" => ret := a;
+            when "001" => ret := (0 => a(1), 1 => a(0), others => '0');
+            when "010" => ret := (0 => a(2), 1 => a(1), 2 => a(0), others => '0');
+            when "011" => ret := (0 => a(3), 1 => a(2), 2 => a(1), 3 => a(0), others => '0');
+            when "100" => ret := (0 => a(4), 1 => a(3), 2 => a(2), 3 => a(1), 4 => a(0), others => '0');
+            when "101" => ret := (0 => a(5), 1 => a(4), 2 => a(3), 3 => a(2), 4 => a(1), 5 => a(0), others => '0');
+            when "110" => ret := (0 => a(6), 1 => a(5), 2 => a(4), 3 => a(3), 4 => a(2), 5 => a(1), 6 => a(0), others => '0');
+            when others => ret := (0 => a(7), 1 => a(6), 2 => a(5), 3 => a(4), 4 => a(3), 5 => a(2), 6 => a(1), 7 => a(0));
+        end case;
         return ret;
     end function;
 
