@@ -14,8 +14,8 @@ entity mp_writeback is
         clk     : in  std_logic;
 
         cmd_in  : in  t_vliw;
-        arg_in  : in  t_data_array(4 downto 0);
-        val_in  : in  t_data_array(4 downto 0);
+        arg_in  : in  t_data_array(5 downto 0);
+        val_in  : in  t_data_array(5 downto 0);
 
         mem_wea  : out std_logic;
         mem_dia  : out t_data;
@@ -32,17 +32,17 @@ architecture Structural of mp_writeback is
 
     signal cmd : t_vliw;
     signal cmd_r : t_vliw;
-    signal val : t_data_array(4 downto 0);
+    signal val : t_data_array(5 downto 0);
     signal w_val : t_data_array(1 downto 0);
-    signal arg : t_data_array(4 downto 0);
-    signal arg_r : t_data_array(4 downto 0);
+    signal arg : t_data_array(5 downto 0);
+    signal arg_r : t_data_array(5 downto 0);
     signal addr : t_data_array(1 downto 0);
     signal wb : std_logic_vector(1 downto 0);
     signal memchunk : t_2array(1 downto 0);
 begin
 
-arg_mux: for i in 4 downto 0 generate
-   arg(i) <= bitrev(arg_in(to_integer(unsigned(cmd_in.wb_assign(i)))), cmd_in.wb_bitrev(i));
+arg_mux: for i in 5 downto 0 generate
+   arg(i) <= bitrev(index2val(arg_in, cmd_in.wb_assign(i)), cmd_in.wb_bitrev(i));
 end generate arg_mux;
 
 state: process(clk)
@@ -77,11 +77,11 @@ begin
                         write_state <= idle;
                     end if;
                 when writeb =>
-                    addr(0) <= arg_r(4);
-                    memchunk(0) <= cmd.wb_memchunk(4);
-                    w_val(0) <= val(4);
+                    addr <= arg_r(5 downto 4);
+                    memchunk <= cmd.wb_memchunk(5 downto 4);
+                    w_val <= val(5 downto 4);
                     if cmd.wb(2) = '1' then
-                        wb <= (0 => cmd.wb(4), others => '0');
+                        wb <= cmd.wb(5 downto 4);
                         write_state <= writec;
                     else
                         wb <= (others => '0');

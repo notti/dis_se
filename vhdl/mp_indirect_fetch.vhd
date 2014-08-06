@@ -14,7 +14,7 @@ entity mp_indirect_fetch is
         clk     : in  std_logic;
 
         cmd_in  : in t_vliw;
-        arg_in  : in t_data_array(4 downto 0);
+        arg_in  : in t_data_array(5 downto 0);
 
         mem_addra: out std_logic_vector(9 downto 0); 
         mem_ena  : out std_logic;
@@ -23,8 +23,8 @@ entity mp_indirect_fetch is
         mem_enb  : out std_logic;
         mem_dob  : in  t_data;
 
-        arg_out  : out t_data_array(4 downto 0);
-        val_out  : out t_data_array(4 downto 0);
+        arg_out  : out t_data_array(5 downto 0);
+        val_out  : out t_data_array(5 downto 0);
 
         cmd_out  : out t_vliw
     );
@@ -36,9 +36,9 @@ architecture Structural of mp_indirect_fetch is
     signal fetch_state_1 : fetch_type;
 
     signal cmd : t_vliw;
-    signal val : t_data_array(4 downto 0);
-    signal arg : t_data_array(4 downto 0);
-    signal arg_r : t_data_array(4 downto 0);
+    signal val : t_data_array(5 downto 0);
+    signal arg : t_data_array(5 downto 0);
+    signal arg_r : t_data_array(5 downto 0);
 
     signal addr : t_data_array(1 downto 0);
 
@@ -48,7 +48,7 @@ architecture Structural of mp_indirect_fetch is
 begin
 
 arg_mux: for i in 4 downto 0 generate
-   arg(i) <= arg_in(to_integer(unsigned(cmd_in.arg_assign(i))));
+   arg(i) <= index2val(arg_in, cmd_in.arg_assign(i));
 end generate arg_mux;
 
 state: process(clk)
@@ -84,13 +84,13 @@ begin
                         fetch_state <= fetchb;
                     end if;
                 when fetchb => 
-                    addr(0) <= arg_r(4);
-                    memchunk(0) <= cmd.mem_memchunk(4);
+                    addr <= arg_r(5 downto 4);
+                    memchunk <= cmd.mem_memchunk(5 downto 4);
                     if cmd.mem_fetch(4) = '0' then
                         to_fetch <= (others => '0');
                         fetch_state <= store_arg;
                     else
-                        to_fetch <= (0 => cmd.mem_fetch(4), others => '0');
+                        to_fetch <= cmd.mem_fetch(5 downto 4);
                         fetch_state <= fetchc;
                     end if;
                 when fetchc =>
@@ -112,7 +112,7 @@ begin
             val <= (others => (others => '0'));
         else
             if fetch_state = idle then
-                for i in 0 to 4 loop
+                for i in 0 to 5 loop
                     if cmd_in.arg_val(i) = '1' then
                         val(i) <= arg(i);
                     end if;
@@ -134,6 +134,9 @@ begin
             elsif fetch_state_1 = fetchc then
                 if to_fetch_1(0) = '1' then
                     val(4) <= mem_doa;
+                end if;
+                if to_fetch_1(1) = '1' then
+                    val(5) <= mem_dob;
                 end if;
             end if;
         end if;

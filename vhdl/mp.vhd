@@ -54,23 +54,23 @@ architecture Structural of mp is
     signal mem_weh   : std_logic;
     signal mem_dih   : t_data;
 
-    signal df_arg    : t_data_array(4 downto 0);
+    signal df_arg    : t_data_array(5 downto 0);
     signal df_cmd    : t_vliw;
 
-    signal if_arg    : t_data_array(4 downto 0);
-    signal if_val    : t_data_array(4 downto 0);
+    signal if_arg    : t_data_array(5 downto 0);
+    signal if_val    : t_data_array(5 downto 0);
     signal if_cmd    : t_vliw;
 
-    signal s1_arg    : t_data_array(4 downto 0);
-    signal s1_val    : t_data_array(4 downto 0);
+    signal s1_arg    : t_data_array(5 downto 0);
+    signal s1_val    : t_data_array(5 downto 0);
     signal s1_cmd    : t_vliw;
 
-    signal s2_arg    : t_data_array(4 downto 0);
-    signal s2_val    : t_data_array(4 downto 0);
+    signal s2_arg    : t_data_array(5 downto 0);
+    signal s2_val    : t_data_array(5 downto 0);
     signal s2_cmd    : t_vliw;
 
-    signal s3_arg    : t_data_array(4 downto 0);
-    signal s3_val    : t_data_array(4 downto 0);
+    signal s3_arg    : t_data_array(5 downto 0);
+    signal s3_val    : t_data_array(5 downto 0);
     signal s3_cmd    : t_vliw;
 begin
 

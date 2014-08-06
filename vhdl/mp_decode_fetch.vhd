@@ -31,7 +31,7 @@ entity mp_decode_fetch is
         reg_enb           : out std_logic;
         reg_dob           : in  t_data;
 
-        arg_out           : out t_data_array(4 downto 0);
+        arg_out           : out t_data_array(5 downto 0);
         cmd_out           : out t_vliw
     );
 end mp_decode_fetch;
@@ -49,7 +49,7 @@ architecture Structural of mp_decode_fetch is
 
     signal wr_cycle : unsigned(4 downto 0);
 
-    signal to_store : std_logic_vector(175 downto 0);
+    signal to_store : std_logic_vector((VLIW_HIGH/16)*16-1 downto 0);
     signal to_store_final : std_logic_vector(VLIW_HIGH downto 0);
 
     signal store_addr : unsigned(2 downto 0);
@@ -60,9 +60,9 @@ architecture Structural of mp_decode_fetch is
 
 begin
 
-to_store_final(175 downto 0) <= to_store;
-to_store_final(VLIW_HIGH downto 176) <= pdata(1 downto 0);
-store_addr <= cmd_index when fetch_state = fetch_cmd and to_integer(wr_cycle) = 11 else
+to_store_final((VLIW_HIGH/16)*16-1 downto 0) <= to_store;
+to_store_final(VLIW_HIGH downto (VLIW_HIGH/16)*16) <= pdata(VLIW_HIGH mod 16 downto 0);
+store_addr <= cmd_index when fetch_state = fetch_cmd and to_integer(wr_cycle) = VLIW_HIGH/16 else
               unsigned(pdata(2 downto 0));
 
 state: process(clk)
@@ -93,12 +93,12 @@ begin
                         end if;
                     end if;
                 when fetch_cmd =>
-                    for i in 0 to 10 loop
+                    for i in 0 to VLIW_HIGH/16-1 loop
                         if to_integer(wr_cycle) = i then
                             to_store((i+1)*16-1 downto i*16) <= pdata;
                         end if;
                     end loop;
-                    if to_integer(wr_cycle) = 11 then
+                    if to_integer(wr_cycle) = VLIW_HIGH/16 then
                         cmd_store(to_integer(store_addr)) <= to_store_final;
                         fetch_state <= store_cmd;
                     end if;
@@ -112,12 +112,12 @@ begin
                         fetch_state <= fetchb;
                     end if;
                 when fetchb =>
-                    memchunk(0) <= cmd.arg_memchunk(4);
+                    memchunk <= cmd.arg_memchunk(5 downto 4);
                     if cmd.arg_type(4) = ARG_NONE then
                         to_fetch <= (others => ARG_NONE);
                         fetch_state <= store_arg;
                     else
-                        to_fetch <= (1 => ARG_NONE, 0 => cmd.arg_type(4));
+                        to_fetch <= cmd.arg_type(5 downto 4);
                         fetch_state <= fetchc;
                     end if;
                 when fetchc =>
@@ -140,7 +140,7 @@ begin
         if rst = '1' then
             wr_cycle <= (others => '0');
         else
-            if wr_cycle = 11 or fetch_state /= fetch_cmd then
+            if wr_cycle = VLIW_HIGH/16 or fetch_state /= fetch_cmd then
                 wr_cycle <= (others => '0');
             else
                 wr_cycle <= wr_cycle + 1;
@@ -185,18 +185,24 @@ begin
                     arg_out(1) <= pdata(15 downto 8);
                 elsif fetch_state = fetchb then
                     arg_out(3) <= pdata(15 downto 8);
+                elsif fetch_state = fetchc then
+                    arg_out(5) <= pdata(15 downto 8);
                 end if;
             elsif to_fetch_1(1) = ARG_REG then
                 if fetch_state_1 = fetcha then
                     arg_out(1) <= reg_dob;
                 elsif fetch_state_1 = fetchb then
                     arg_out(3) <= reg_dob;
+                elsif fetch_state_1 = fetchc then
+                    arg_out(5) <= reg_dob;
                 end if;
             elsif to_fetch_1(1) = ARG_MEM then
                 if fetch_state_1 = fetcha then
                     arg_out(1) <= mem_dob;
                 elsif fetch_state_1 = fetchb then
                     arg_out(3) <= mem_dob;
+                elsif fetch_state_1 = fetchc then
+                    arg_out(5) <= mem_dob;
                 end if;
             end if;
         end if;

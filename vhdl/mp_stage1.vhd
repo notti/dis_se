@@ -14,11 +14,11 @@ entity mp_stage1 is
         clk     : in  std_logic;
 
         cmd_in  : in  t_vliw;
-        arg_in  : in  t_data_array(4 downto 0);
-        val_in  : in  t_data_array(4 downto 0);
+        arg_in  : in  t_data_array(5 downto 0);
+        val_in  : in  t_data_array(5 downto 0);
 
-        arg_out : out t_data_array(4 downto 0);
-        val_out : out t_data_array(4 downto 0);
+        arg_out : out t_data_array(5 downto 0);
+        val_out : out t_data_array(5 downto 0);
         cmd_out : out t_vliw
     );
 end mp_stage1;
@@ -26,11 +26,11 @@ end mp_stage1;
 architecture Structural of mp_stage1 is
     signal cmd_1 : t_vliw;
     signal cmd_2 : t_vliw;
-    signal val_1 : t_data_array(4 downto 0);
-    signal val_2 : t_data_array(4 downto 0);
-    signal val   : t_data_array(4 downto 0);
-    signal arg_1 : t_data_array(4 downto 0);
-    signal arg_2 : t_data_array(4 downto 0);
+    signal val_1 : t_data_array(5 downto 0);
+    signal val_2 : t_data_array(5 downto 0);
+    signal val   : t_data_array(5 downto 0);
+    signal arg_1 : t_data_array(5 downto 0);
+    signal arg_2 : t_data_array(5 downto 0);
     signal c1  : t_data;
     signal c2  : t_data;
     signal a1  : t_data;
@@ -89,7 +89,7 @@ port map(
 bypass <= '1' when cmd_in.noop = '0' and cmd_in.s1_op1 = CALU_NOOP and cmd_in.s1_op2 = CALU_NOOP and cmd_2.noop = '1' else
           '0';
 
-vmux: for i in 4 downto 0 generate
+vmux: for i in 5 downto 0 generate
     val(i) <= c1 when to_integer(unsigned(cmd_2.s1_out1)) = i and cmd_2.s1_op1 /= CALU_NOOP else
               c2 when to_integer(unsigned(cmd_2.s1_out2)) = i and cmd_2.s1_op2 /= CALU_NOOP else
               val_2(i);

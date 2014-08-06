@@ -14,11 +14,11 @@ entity mp_stage3 is
         clk     : in  std_logic;
 
         cmd_in  : in  t_vliw;
-        arg_in  : in  t_data_array(4 downto 0);
-        val_in  : in  t_data_array(4 downto 0);
+        arg_in  : in  t_data_array(5 downto 0);
+        val_in  : in  t_data_array(5 downto 0);
 
-        arg_out : out t_data_array(4 downto 0);
-        val_out : out t_data_array(4 downto 0);
+        arg_out : out t_data_array(5 downto 0);
+        val_out : out t_data_array(5 downto 0);
         cmd_out : out t_vliw
     );
 end mp_stage3;
@@ -30,9 +30,9 @@ architecture Structural of mp_stage3 is
     signal b1  : t_data;
     signal a2  : t_data;
     signal b2  : t_data;
-    signal val : t_data_array(4 downto 0);
-    signal val_1 : t_data_array(4 downto 0);
-    signal arg_1 : t_data_array(4 downto 0);
+    signal val : t_data_array(5 downto 0);
+    signal val_1 : t_data_array(5 downto 0);
+    signal arg_1 : t_data_array(5 downto 0);
     signal cmd_1 : t_vliw;
     signal bypass : std_logic;
 begin
@@ -80,7 +80,7 @@ port map(
 bypass <= '1' when cmd_in.noop = '0' and cmd_in.s3_op1 = CALU_NOOP and cmd_in.s3_op2 = CALU_NOOP and cmd_1.noop = '1' else
           '0';
 
-vmux: for i in 4 downto 0 generate
+vmux: for i in 5 downto 0 generate
     val(i) <= c1 when to_integer(unsigned(cmd_1.s3_out1)) = i and cmd_1.s3_op1 /= SALU_NOOP else
               c2 when to_integer(unsigned(cmd_1.s3_out2)) = i and cmd_1.s3_op2 /= SALU_NOOP else
               val_1(i);
