@@ -3,11 +3,15 @@
 package parser
 
 import "fmt"
+import . "mp"
 
 type constScanner interface {
     AddConst(id string, num int64)
     AddConstf(id string, num float64)
 }
+
+var mpFunction *MPFunction
+var mpFunctions map[string]*MPFunction
 
 %}
 
@@ -15,6 +19,9 @@ type constScanner interface {
     Num int64
     Fnum float64
     Id string
+    Type int
+    Signed bool
+    Fixed int
 }
 
 %token <Num> LITERAL FIX REGISTER
@@ -30,6 +37,9 @@ type constScanner interface {
 
 %type <Num> integer florint
 %type <Fnum> float florintF
+%type <Type> type
+%type <Signed> signed
+%type <Fixed> fixed
 
 
 %left '+'  '-' '|' '^'
@@ -39,268 +49,334 @@ type constScanner interface {
 
 %%
 
-statements : /* empty */
-           | statements statement
-           ;
+statements  : /* empty */
+            | statements statement
+            ;
 
-statement  : '\n'
-           | const
-           | define
-           | asm
-           ;
+statement   : '\n'
+            | const
+            | define
+            | asm
+            ;
 
-florint    : float
-           {
+florint     : float
+            {
                 $$ = int64($1)
-           }
-           | integer
-           ;
+            }
+            | integer
+            ;
 
-florintF   : float
-           | integer
-           {
+florintF    : float
+            | integer
+            {
                 $$ = float64($1)
-           }
-           ;
+            }
+            ;
 
-float      : FLOAT 
-           | '-' float %prec '*' 
-           {
+float       : FLOAT 
+            | '-' float %prec '*' 
+            {
                 $$ = -$2
-           }
-           | float '+' float
-           {
+            }
+            | float '+' float
+            {
                 $$ = $1 + $3
-           }
-           | float '+' integer 
-           {
+            }
+            | float '+' integer 
+            {
                 $$ = $1 + float64($3)
-           }
-           | integer '+' float
-           {
+            }
+            | integer '+' float
+            {
                 $$ = float64($1) + $3
-           }
-           | float '-' float
-           {
+            }
+            | float '-' float
+            {
                 $$ = $1 - $3
-           }
-           | float '-' integer 
-           {
+            }
+            | float '-' integer 
+            {
                 $$ = $1 - float64($3)
-           }
-           | integer '-' float
-           {
+            }
+            | integer '-' float
+            {
                 $$ = float64($1) - $3
-           }
-           | float '*' float
-           {
+            }
+            | float '*' float
+            {
                 $$ = $1 * $3
-           }
-           | float '*' integer 
-           {
+            }
+            | float '*' integer 
+            {
                 $$ = $1 * float64($3)
-           }
-           | integer '*' float
-           {
+            }
+            | integer '*' float
+            {
                 $$ = float64($1) * $3
-           }
-           | float '/' float
-           {
+            }
+            | float '/' float
+            {
                 $$ = $1 / $3
-           }
-           | float '/' integer 
-           {
+            }
+            | float '/' integer 
+            {
                 $$ = $1 / float64($3)
-           }
-           | integer '/' float
-           {
+            }
+            | integer '/' float
+            {
                 $$ = float64($1) / $3
-           }
-           | IDENTIFIER '(' florintF ')'
-           {
-           }
-           ;
+            }
+            | IDENTIFIER '(' florintF ')'
+            {
+            }
+            ;
 
-integer    : '(' integer ')'
-           {
+integer     : '(' integer ')'
+            {
                 $$ = $2
-           }
-           | integer '+' integer
-           {
+            }
+            | integer '+' integer
+            {
                 $$ = $1 + $3
-           }
-           | integer '-' integer
-           {
+            }
+            | integer '-' integer
+            {
                 $$ = $1 - $3
-           }
-           | integer '*' integer
-           {
+            }
+            | integer '*' integer
+            {
                 $$ = $1 * $3
-           }
-           | integer '/' integer
-           {
+            }
+            | integer '/' integer
+            {
                 $$ = $1 / $3
-           }
-           | integer '%' integer
-           {
+            }
+            | integer '%' integer
+            {
                 $$ = $1 % $3
-           }
-           | integer '&' integer
-           {
+            }
+            | integer '&' integer
+            {
                 $$ = $1 & $3
-           }
-           | integer '|' integer
-           {
+            }
+            | integer '|' integer
+            {
                 $$ = $1 | $3
-           }
-           | integer '^' integer
-           {
+            }
+            | integer '^' integer
+            {
                 $$ = $1 ^ $3
-           }
-           | integer LSHIFT integer
-           {
+            }
+            | integer LSHIFT integer
+            {
                 $$ = $1 << uint64($3)
-           }
-           | integer RSHIFT integer
-           {
+            }
+            | integer RSHIFT integer
+            {
                 $$ = $1 >> uint64($3)
-           }
-           | '-' integer %prec '*'
-           {
+            }
+            | '-' integer %prec '*'
+            {
                 $$ = -$2
-           }
-           | LITERAL
-           ;
+            }
+            | LITERAL
+            ;
 
-const      : CONST IDENTIFIER integer '\n'
-           {
+const       : CONST IDENTIFIER integer '\n'
+            {
                 {
                     lexer := Parserlex.(constScanner)
                     lexer.AddConst($2, $3)
                 }
-           }
-           | CONST IDENTIFIER float '\n'
-           {
+            }
+            | CONST IDENTIFIER float '\n'
+            {
                 {
                     lexer := Parserlex.(constScanner)
                     lexer.AddConstf($2, $3)
                 }
-           }
-           ;
+            }
+            ;
 
-type       : REG
-           | MEM
-           | IMM
-           | LAST
-           ;
+type        : REG
+            {
+                $$ = ARG_REG
+            }
+            | MEM
+            {
+                $$ = ARG_MEM
+            }
+            | IMM
+            {
+                $$ = ARG_IMM
+            }
+            | LAST
+            {
+                $$ = ARG_NONE
+            }
+            ;
 
-signed     : /* no modifier */
-           | UNSIGNED
-           | SIGNED
-           ;
+signed      : /* no modifier */
+            {
+                $$ = false
+            }
+            | UNSIGNED
+            {
+                $$ = false
+            }
+            | SIGNED
+            {
+                $$ = true
+            }
+            ;
 
-fixed      : /* not fixed */
-           | FIX
-           ;
+fixed       : /* not fixed */
+            {
+                $$ = 0
+            }
+            | FIX
+            {
+                if $1 > 7 || $1 < 0 {
+                    Parserlex.Error("fix must be 1-7")
+                    return 1
+                }
+                fmt.Println($1)
+                $$ = int($1)
+            }
+            ;
 
-argument   : signed fixed type IDENTIFIER
-           ;
+argument    : signed fixed type IDENTIFIER
+            {
+                if mpFunction.AddArgument($1, $2, $3, $4) == false {
+                    Parserlex.Error("double argument " + $4)
+                    return 1
+                }
+            }
+            ;
 
-arguments  : argument
-           | arguments ',' argument
-           ;
+arguments   : argument
+            | arguments ',' argument
+            ;
 
-membase    : IDENTIFIER
-           | MEM IDENTIFIER
-           ;
+membase     : IDENTIFIER
+            | MEM IDENTIFIER
+            ;
 
-memaddr    : IDENTIFIER
-           | '^' IDENTIFIER
-           ;
+memaddr     : IDENTIFIER
+            | '^' IDENTIFIER
+            ;
 
-leftvar    : IDENTIFIER
-           | membase '[' memaddr ']'
-           ;
+leftvar     : IDENTIFIER
+            | membase '[' memaddr ']'
+            ;
 
-var        : IDENTIFIER
-           | membase '[' IDENTIFIER ']'
-           ;
+var         : IDENTIFIER
+            {
+                fmt.Println("id", $1)
+            }
+            | membase '[' IDENTIFIER ']'
+            {
+                fmt.Println("mem",$3)
+            }
+            ;
 
 
-rightvar   : signed fixed var
-           | LITERAL       // check for 0 1
-           ;
+rightvar    : signed fixed var
+            | LITERAL       // check for 0 1
+            {
+                fmt.Println("lit", $1)
+            }
+            ;
 
-eqn        : rightvar
-           | '(' eqn ')'
-           | eqn '+' eqn
-           | eqn '-' eqn
-           | eqn '*' eqn
-           | eqn RSHIFT eqn
-           ;
+eqn         : rightvar
+            | '(' eqn ')'
+            | eqn '+' eqn
+            {
+                fmt.Println(" +")
+            }
+            | eqn '-' eqn
+            {
+                fmt.Println(" -")
+            }
+            | eqn '*' eqn
+            {
+                fmt.Println(" *")
+            }
+            | eqn RSHIFT eqn
+            {
+                fmt.Println(" >>")
+            }
+            ;
 
-bodyline   : leftvar '=' eqn '\n'
-           ;
+bodyline    : leftvar '=' eqn '\n'
+            ;
 
-body       : bodyline
-           | body bodyline
-           ;
+body        : bodyline
+            | body bodyline
+            ;
 
-define     : DEFINE IDENTIFIER MEM LITERAL '\n'
-           {
-                fmt.Println("def", $2, $4)
-           }
-           | DEFINE IDENTIFIER '(' arguments ')' '{' '\n' body '}' '\n'
-           {
-                fmt.Println("def fun", $2)
-           }
-           ;
+define      : DEFINE IDENTIFIER MEM LITERAL '\n'
+            {
+                 fmt.Println("def", $2, $4)
+            }
+            | DEFINE IDENTIFIER '('
+                {
+                    if _, ok := mpFunctions[$2]; ok {
+                        Parserlex.Error("function named " + $2 + " already defined")
+                        return 1
+                    }
+                    mpFunction = NewMPFunction()
+                } arguments ')' '{' '\n' body '}' '\n'
+            {
+                 fmt.Println("def fun", $2, mpFunction.Args)
+            }
+            ;
 
-label      : IDENTIFIER ':'
-           ;
+label       : IDENTIFIER ':'
+            ;
 
-asmarg     : IDENTIFIER
-           | florint
-           | REGISTER
-           | IDENTIFIER '[' REGISTER ']'
-           | LITERAL '[' REGISTER ']'
-           | MEM LITERAL '[' REGISTER ']'
-           ;
+asmarg      : IDENTIFIER
+            | florint
+            | REGISTER
+            | IDENTIFIER '[' REGISTER ']'
+            | LITERAL '[' REGISTER ']'
+            | MEM LITERAL '[' REGISTER ']'
+            ;
 
-op         : OP
-           ;
+op          : OP
+            ;
 
-op1        : OP1 asmarg
-           ;
+op1         : OP1 asmarg
+            ;
 
-op2        : OP2 asmarg ',' asmarg
-           ;
+op2         : OP2 asmarg ',' asmarg
+            ;
 
-op3        : OP3 asmarg ',' asmarg ',' asmarg
-           ;
+op3         : OP3 asmarg ',' asmarg ',' asmarg
+            ;
 
-mparglist  : asmarg 
-           | mparglist ',' asmarg
-           ;
+mparglist   : asmarg 
+            | mparglist ',' asmarg
+            ;
 
-mpargs     :
-           | mparglist
-           ;
+mpargs      :
+            | mparglist
+            ;
 
-mp         : IDENTIFIER mpargs
-           ;
+mp          : IDENTIFIER mpargs
+            ;
 
-asmstmnt   : op
-           | op1
-           | op2
-           | op3
-           | mp
-           ;
+asmstmnt    : op
+            | op1
+            | op2
+            | op3
+            | mp
+            ;
 
-asm        : label '\n'
-           | label asmstmnt '\n'
-           | asmstmnt '\n'
-           ;
+asm         : label '\n'
+            | label asmstmnt '\n'
+            | asmstmnt '\n'
+            ;
 
 %%
 

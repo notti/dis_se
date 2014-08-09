@@ -85,7 +85,7 @@ func (state *ScannerState) Lex(lval *ParserSymType) int {
                         "'" extend %parseAscii "'" ;
         float = ( digit+ '.' digit* |
                 digit* '.' digit+ ) >pos %parseFloat;
-        fix = 'fix'i [1-7] %{ lval.Num = int64(state.data[sa] - '0') };
+        fix = 'fix'i [1-7] %{ lval.Num = int64(state.data[state.p-1] - '0') };
         comment := any* '\n' @{ fhold; fnext main; };
         register = '$' ( digit+ >pos %parseDec [LH]? | 'SERIAL'i %{ lval.Num = -1 } ) ;
         literalorconst = literal | identifier %{ lval.Num, ok = state.consts[lval.Id]; if ok == false { state.p = sa; fnext *asm_error; } };
@@ -400,7 +400,7 @@ func (state *ScannerState) ScanOk() {
 }
 
 func (state *ScannerState) Error(s string) {
-    fmt.Printf("syntax error: %s\n", s)
+    fmt.Printf("syntax error: %s in line %d\n", s, state.line)
 }
 
 func (state *ScannerState) AddConst(id string, num int64) {
