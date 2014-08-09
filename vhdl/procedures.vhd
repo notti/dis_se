@@ -11,6 +11,7 @@ package procedures is
     type t_data2_array is array(natural range <>) of t_data;
     type t_2array is array(natural range <>) of std_logic_vector(1 downto 0);
     type t_3array is array(natural range <>) of std_logic_vector(2 downto 0);
+    type t_4array is array(natural range <>) of std_logic_vector(3 downto 0);
 
     constant ARG_NONE : std_logic_vector(1 downto 0) := "00";
     constant ARG_REG  : std_logic_vector(1 downto 0) := "01";
@@ -86,7 +87,7 @@ package procedures is
             wb           : std_logic_vector(5 downto 0);
             wb_memchunk  : t_2array(5 downto 0);
             wb_bitrev    : t_3array(5 downto 0);
-            wb_assign    : t_3array(5 downto 0);
+            wb_assign    : t_4array(5 downto 0);
 
             -- ctrl
             noop         : std_logic;
@@ -130,7 +131,7 @@ package procedures is
         wb_memchunk => (others => (others => '0')),
         noop => '1'
     );
-    constant VLIW_HIGH : natural := 197;
+    constant VLIW_HIGH : natural := 203;
 
     function index2val(signal val: in t_data_array(5 downto 0);
                        signal index: in std_logic_vector(2 downto 0)) return t_data;
@@ -222,12 +223,12 @@ package body procedures is
         ret.wb_bitrev(3)    := slv(173 downto 171);
         ret.wb_bitrev(4)    := slv(176 downto 174);
         ret.wb_bitrev(5)    := slv(179 downto 177);
-        ret.wb_assign(0)    := slv(182 downto 180);
-        ret.wb_assign(1)    := slv(185 downto 183);
-        ret.wb_assign(2)    := slv(188 downto 186);
-        ret.wb_assign(3)    := slv(191 downto 189);
-        ret.wb_assign(4)    := slv(194 downto 192);
-        ret.wb_assign(5)    := slv(197 downto 195);
+        ret.wb_assign(0)    := slv(183 downto 180);
+        ret.wb_assign(1)    := slv(187 downto 184);
+        ret.wb_assign(2)    := slv(191 downto 188);
+        ret.wb_assign(3)    := slv(195 downto 192);
+        ret.wb_assign(4)    := slv(199 downto 196);
+        ret.wb_assign(5)    := slv(203 downto 200);
         ret.noop            := '0';
         return ret;
     end function;
@@ -300,12 +301,12 @@ package body procedures is
         ret(173 downto 171) := vliw.wb_bitrev(3);
         ret(176 downto 174) := vliw.wb_bitrev(4);
         ret(179 downto 177) := vliw.wb_bitrev(5);
-        ret(182 downto 180) := vliw.wb_assign(0);
-        ret(185 downto 183) := vliw.wb_assign(1);
-        ret(188 downto 186) := vliw.wb_assign(2);
-        ret(191 downto 189) := vliw.wb_assign(3);
-        ret(194 downto 192) := vliw.wb_assign(4);
-        ret(197 downto 195) := vliw.wb_assign(5);
+        ret(183 downto 180) := vliw.wb_assign(0);
+        ret(187 downto 184) := vliw.wb_assign(1);
+        ret(191 downto 188) := vliw.wb_assign(2);
+        ret(195 downto 192) := vliw.wb_assign(3);
+        ret(199 downto 196) := vliw.wb_assign(4);
+        ret(203 downto 200) := vliw.wb_assign(5);
         return ret;
     end function;
 
