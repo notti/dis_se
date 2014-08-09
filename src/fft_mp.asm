@@ -33,15 +33,15 @@ BEGIN_SYNC:
     CMPL $SERIAL, 0xAA
     JNE BEGIN_SYNC
 
-    MOVL SERIAL, '1'
+    MOVL $SERIAL, '1'
 
 LOAD:
     MOV $2, 0
 READ:
     MOVL $0, $SERIAL
-    MOVR $0, $SERIAL     ; $0 = IR
+    MOVH $0, $SERIAL     ; $0 = IR
     MOVL $1, $SERIAL
-    MOVR $1, $SERIAL     ; $1 = IR
+    MOVH $1, $SERIAL     ; $1 = IR
     load $0L, $0H, $2, $1L, $1H
     ADD $2, $2, 2
     CMP $2, N
@@ -63,7 +63,7 @@ OUTER:
 
 INNER:
     ADD $4, $5, $0
-    bfr $5, $4, $7 $8
+    bfr $5, $4, $7, $8
     bfi
     ADD $5, $5, $2
     CMP $5, N

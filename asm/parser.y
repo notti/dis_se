@@ -21,46 +21,19 @@ type constScanner interface {
 %token <Fnum> FLOAT
 %token <Id> IDENTIFIER
 
-%token CONST DEFINE MEM REG LAST UNSIGNED SIGNED RSHIFT LSHIFT
+%token CONST DEFINE MEM REG LAST IMM UNSIGNED SIGNED RSHIFT LSHIFT
 
-%token ADD
-%token ADDC
-%token SUB
-%token SUBB
-%token AND
-%token OR
-%token XOR
-%token NOT
-%token NEG
-%token CMP
-%token SHL
-%token SHR
-%token SAR
-%token ROLC
-%token RORC
-%token JMP
-%token JZ
-%token JNZ
-%token JLE
-%token JLT
-%token JGE
-%token JGT
-%token JULE
-%token JULT
-%token JUGE
-%token JUGT
-%token NOP
-%token MOV
-%token MOVH
-%token MOVL
+%token OP
+%token OP1
+%token OP2
+%token OP3
 
-%type <Num> integer
-%type <Fnum> float
+%type <Num> integer florint
+%type <Fnum> float florintF
 
 
 %left '+'  '-' '|' '^'
 %left '*'  '/'  '%' '&' RSHIFT LSHIFT
-%right UMINUS
 
 %start statements
 
@@ -73,10 +46,25 @@ statements : /* empty */
 statement  : '\n'
            | const
            | define
+           | asm
+           ;
+
+florint    : float
+           {
+                $$ = int64($1)
+           }
+           | integer
+           ;
+
+florintF   : float
+           | integer
+           {
+                $$ = float64($1)
+           }
            ;
 
 float      : FLOAT 
-           | '-' float %prec UMINUS
+           | '-' float %prec '*' 
            {
                 $$ = -$2
            }
@@ -128,6 +116,9 @@ float      : FLOAT
            {
                 $$ = float64($1) / $3
            }
+           | IDENTIFIER '(' florintF ')'
+           {
+           }
            ;
 
 integer    : '(' integer ')'
@@ -174,7 +165,7 @@ integer    : '(' integer ')'
            {
                 $$ = $1 >> uint64($3)
            }
-           | '-' integer %prec UMINUS
+           | '-' integer %prec '*'
            {
                 $$ = -$2
            }
@@ -197,10 +188,119 @@ const      : CONST IDENTIFIER integer '\n'
            }
            ;
 
+type       : REG
+           | MEM
+           | IMM
+           | LAST
+           ;
+
+signed     : /* no modifier */
+           | UNSIGNED
+           | SIGNED
+           ;
+
+fixed      : /* not fixed */
+           | FIX
+           ;
+
+argument   : signed fixed type IDENTIFIER
+           ;
+
+arguments  : argument
+           | arguments ',' argument
+           ;
+
+membase    : IDENTIFIER
+           | MEM IDENTIFIER
+           ;
+
+memaddr    : IDENTIFIER
+           | '^' IDENTIFIER
+           ;
+
+leftvar    : IDENTIFIER
+           | membase '[' memaddr ']'
+           ;
+
+var        : IDENTIFIER
+           | membase '[' IDENTIFIER ']'
+           ;
+
+
+rightvar   : signed fixed var
+           | LITERAL       // check for 0 1
+           ;
+
+eqn        : rightvar
+           | '(' eqn ')'
+           | eqn '+' eqn
+           | eqn '-' eqn
+           | eqn '*' eqn
+           | eqn RSHIFT eqn
+           ;
+
+bodyline   : leftvar '=' eqn '\n'
+           ;
+
+body       : bodyline
+           | body bodyline
+           ;
+
 define     : DEFINE IDENTIFIER MEM LITERAL '\n'
            {
-                fmt.Println($2, $4)
+                fmt.Println("def", $2, $4)
            }
+           | DEFINE IDENTIFIER '(' arguments ')' '{' '\n' body '}' '\n'
+           {
+                fmt.Println("def fun", $2)
+           }
+           ;
+
+label      : IDENTIFIER ':'
+           ;
+
+asmarg     : IDENTIFIER
+           | florint
+           | REGISTER
+           | IDENTIFIER '[' REGISTER ']'
+           | LITERAL '[' REGISTER ']'
+           | MEM LITERAL '[' REGISTER ']'
+           ;
+
+op         : OP
+           ;
+
+op1        : OP1 asmarg
+           ;
+
+op2        : OP2 asmarg ',' asmarg
+           ;
+
+op3        : OP3 asmarg ',' asmarg ',' asmarg
+           ;
+
+mparglist  : asmarg 
+           | mparglist ',' asmarg
+           ;
+
+mpargs     :
+           | mparglist
+           ;
+
+mp         : IDENTIFIER mpargs
+           ;
+
+asmstmnt   : op
+           | op1
+           | op2
+           | op3
+           | mp
+           ;
+
+asm        : label '\n'
+           | label asmstmnt '\n'
+           | asmstmnt '\n'
+           ;
 
 %%
 

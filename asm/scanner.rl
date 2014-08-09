@@ -87,7 +87,7 @@ func (state *ScannerState) Lex(lval *ParserSymType) int {
                 digit* '.' digit+ ) >pos %parseFloat;
         fix = 'fix'i [1-7] %{ lval.Num = int64(state.data[sa] - '0') };
         comment := any* '\n' @{ fhold; fnext main; };
-        register = '$' ( digit+ >pos %parseDec | 'SERIAL'i %{ lval.Num = -1 } );
+        register = '$' ( digit+ >pos %parseDec [LH]? | 'SERIAL'i %{ lval.Num = -1 } ) ;
         literalorconst = literal | identifier %{ lval.Num, ok = state.consts[lval.Id]; if ok == false { state.p = sa; fnext *asm_error; } };
         for := space* identifier %{ state.forloops = append(state.forloops, forState{lval.Id, 0, 0}) } space* 'in'i space* literalorconst %{ state.forvars[state.forloops[len(state.forloops)-1].name] = lval.Num } space* 'to'i space* literalorconst %{ state.forloops[len(state.forloops)-1].max = lval.Num } space* '{' @{ state.forloops[len(state.forloops)-1].p = state.p; fnext main; };
 
@@ -122,6 +122,10 @@ func (state *ScannerState) Lex(lval *ParserSymType) int {
                  };
                  'last'i => {
                      token = LAST
+                     fbreak;
+                 };
+                 'imm'i => {
+                     token = IMM
                      fbreak;
                  };
                  'unsigned'i => {
@@ -183,124 +187,179 @@ func (state *ScannerState) Lex(lval *ParserSymType) int {
                      token = REGISTER
                      fbreak;
                  };
-                 'ADD'i => {
-                     token = ADD
+                 'NOP'i => {
+                     token = OP
+                     lval.Num = 0
                      fbreak;
                  };
-                 'ADDC'i => {
-                     token = ADDC
+                 'DB'i => {
+                     token = OP1
+                     lval.Num = 0
                      fbreak;
                  };
-                 'SUB'i => {
-                     token = SUB
-                     fbreak;
-                 };
-                 'SUBB'i => {
-                     token = SUBB
-                     fbreak;
-                 };
-                 'AND'i => {
-                     token = AND
-                     fbreak;
-                 };
-                 'OR'i => {
-                     token = OR
-                     fbreak;
-                 };
-                 'XOR'i => {
-                     token = XOR
-                     fbreak;
-                 };
-                 'NOT'i => {
-                     token = NOT
-                     fbreak;
-                 };
-                 'NEG'i => {
-                     token = NEG
-                     fbreak;
-                 };
-                 'CMP'i => {
-                     token = CMP
-                     fbreak;
-                 };
-                 'SHL'i => {
-                     token = SHL
-                     fbreak;
-                 };
-                 'SHR'i => {
-                     token = SHR
-                     fbreak;
-                 };
-                 'SAR'i => {
-                     token = SAR
-                     fbreak;
-                 };
-                 'ROLC'i => {
-                     token = ROLC
-                     fbreak;
-                 };
-                 'RORC'i => {
-                     token = RORC
+                 'DW'i => {
+                     token = OP1
+                     lval.Num = 0
                      fbreak;
                  };
                  'JMP'i => {
-                     token = JMP
+                     token = OP1
+                     lval.Num = 0
                      fbreak;
                  };
                  'JZ'i => {
-                     token = JZ
+                     token = OP1
+                     lval.Num = 0
+                     fbreak;
+                 };
+                 'JNE'i => {
+                     token = OP1
+                     lval.Num = 0
                      fbreak;
                  };
                  'JNZ'i => {
-                     token = JNZ
+                     token = OP1
+                     lval.Num = 0
                      fbreak;
                  };
                  'JLE'i => {
-                     token = JLE
+                     token = OP1
+                     lval.Num = 0
                      fbreak;
                  };
                  'JLT'i => {
-                     token = JLT
+                     token = OP1
+                     lval.Num = 0
                      fbreak;
                  };
                  'JGE'i => {
-                     token = JGE
+                     token = OP1
+                     lval.Num = 0
                      fbreak;
                  };
                  'JGT'i => {
-                     token = JGT
+                     token = OP1
+                     lval.Num = 0
                      fbreak;
                  };
                  'JULE'i => {
-                     token = JULE
+                     token = OP1
+                     lval.Num = 0
                      fbreak;
                  };
                  'JULT'i => {
-                     token = JULT
+                     token = OP1
+                     lval.Num = 0
                      fbreak;
                  };
                  'JUGE'i => {
-                     token = JUGE
+                     token = OP1
+                     lval.Num = 0
                      fbreak;
                  };
                  'JUGT'i => {
-                     token = JUGT
+                     token = OP1
+                     lval.Num = 0
                      fbreak;
                  };
-                 'NOP'i => {
-                     token = NOP
+                 'NOT'i => {
+                     token = OP2
+                     lval.Num = 0
+                     fbreak;
+                 };
+                 'NEG'i => {
+                     token = OP2
+                     lval.Num = 0
+                     fbreak;
+                 };
+                 'CMP'i => {
+                     token = OP2
+                     lval.Num = 0
+                     fbreak;
+                 };
+                 'CMPL'i => {
+                     token = OP2
+                     lval.Num = 0
+                     fbreak;
+                 };
+                 'CMPH'i => {
+                     token = OP2
+                     lval.Num = 0
                      fbreak;
                  };
                  'MOV'i => {
-                     token = MOV
+                     token = OP2
+                     lval.Num = 0
                      fbreak;
                  };
                  'MOVH'i => {
-                     token = MOVH
+                     token = OP2
+                     lval.Num = 0
                      fbreak;
                  };
                  'MOVL'i => {
-                     token = MOVL
+                     token = OP2
+                     lval.Num = 0
+                     fbreak;
+                 };
+                 'ADD'i => {
+                     token = OP3
+                     lval.Num = 0
+                     fbreak;
+                 };
+                 'ADDC'i => {
+                     token = OP3
+                     lval.Num = 0
+                     fbreak;
+                 };
+                 'SUB'i => {
+                     token = OP3
+                     lval.Num = 0
+                     fbreak;
+                 };
+                 'SUBB'i => {
+                     token = OP3
+                     lval.Num = 0
+                     fbreak;
+                 };
+                 'AND'i => {
+                     token = OP3
+                     lval.Num = 0
+                     fbreak;
+                 };
+                 'OR'i => {
+                     token = OP3
+                     lval.Num = 0
+                     fbreak;
+                 };
+                 'XOR'i => {
+                     token = OP3
+                     lval.Num = 0
+                     fbreak;
+                 };
+                 'SHL'i => {
+                     token = OP3
+                     lval.Num = 0
+                     fbreak;
+                 };
+                 'SHR'i => {
+                     token = OP3
+                     lval.Num = 0
+                     fbreak;
+                 };
+                 'SAR'i => {
+                     token = OP3
+                     lval.Num = 0
+                     fbreak;
+                 };
+                 'ROLC'i => {
+                     token = OP3
+                     lval.Num = 0
+                     fbreak;
+                 };
+                 'RORC'i => {
+                     token = OP3
+                     lval.Num = 0
                      fbreak;
                  };
                  identifier => {
