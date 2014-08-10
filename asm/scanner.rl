@@ -4,6 +4,7 @@ import (
     "fmt"
     "strconv"
     "math"
+    "os"
     . "parser"
 )
 
@@ -395,20 +396,18 @@ func (state *ScannerState) ScanOk() {
                 break
             }
         }
-        fmt.Println("Scan error at line", state.line, "near", string(state.data[state.p:last]))
+        fmt.Fprintln(os.Stderr, "Scan error at line", state.line, "near", string(state.data[state.p:last]))
     } 
 }
 
 func (state *ScannerState) Error(s string) {
-    fmt.Printf("syntax error: %s in line %d\n", s, state.line)
+    fmt.Fprintf(os.Stderr, "syntax error: %s in line %d\n", s, state.line)
 }
 
 func (state *ScannerState) AddConst(id string, num int64) {
-    fmt.Println("const:", id, num)
     state.consts[id] = num
 }
 
 func (state *ScannerState) AddConstf(id string, num float64) {
-    fmt.Println("fconst:", id, num)
     state.fconsts[id] = num
 }

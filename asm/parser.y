@@ -2,7 +2,6 @@
 
 package parser
 
-import "fmt"
 import . "mp"
 
 type constScanner interface {
@@ -11,12 +10,13 @@ type constScanner interface {
 }
 
 var mems map[string]int
+var membase int
 var mpFunction MPFunction
-var mpFunctions map[string]MPFunction
+var mpFunctions map[string][]Argument
 
 func ParserInit() {
     mems = make(map[string]int)
-    mpFunctions = make(map[string]MPFunction)
+    mpFunctions = make(map[string][]Argument)
 }
 
 type variable struct {
@@ -82,9 +82,9 @@ statements  : /* empty */
             ;
 
 statement   : '\n'
-            | const
-            | define
-            | asm
+            | const '\n'
+            | define '\n'
+            | asm '\n'
             ;
 
 florint     : float
@@ -210,14 +210,14 @@ integer     : '(' integer ')'
             | LITERAL
             ;
 
-const       : CONST IDENTIFIER integer '\n'
+const       : CONST IDENTIFIER integer
             {
                 {
                     lexer := Parserlex.(constScanner)
                     lexer.AddConst($2, $3)
                 }
             }
-            | CONST IDENTIFIER float '\n'
+            | CONST IDENTIFIER float
             {
                 {
                     lexer := Parserlex.(constScanner)
@@ -230,8 +230,23 @@ type        : REG
             {
                 $$ = ARG_REG
             }
-            | MEM
+            | IDENTIFIER
             {
+                v, ok := mems[$1]
+                if !ok {
+                    Parserlex.Error("mem " + $1 + " not defined")
+                    return 1
+                }
+                membase = v
+                $$ = ARG_MEM
+            }
+            | MEM LITERAL
+            {
+                if $2 < 0 || $2 > 3 {
+                    Parserlex.Error("mem must be in range 0-3")
+                    return 1
+                }
+                membase = int($2)
                 $$ = ARG_MEM
             }
             | IMM
@@ -272,7 +287,7 @@ fixed       : /* not fixed */
             }
             ;
 
-argument    : signed fixed type IDENTIFIER
+argument    : signed fixed { membase = 0 } type IDENTIFIER
             {
                 signed := false
                 if $1 == 1 {
@@ -281,8 +296,8 @@ argument    : signed fixed type IDENTIFIER
                 if $2 == -1 {
                     $2 = 0
                 }
-                if mpFunction.AddArgument(signed, $2, $3, $4) == false {
-                    Parserlex.Error("double argument " + $4)
+                if mpFunction.AddArgument(signed, $2, $4, membase, $5) == false {
+                    Parserlex.Error("double argument " + $5)
                     return 1
                 }
             }
@@ -484,12 +499,12 @@ eqn         : rightvar
             }
             ;
 
-bodyline    : '\n'
-            | IDENTIFIER '=' eqn '\n'
+bodyline    :
+            | IDENTIFIER '=' eqn
             {
                 mpFunction.AddNamedRegister($1, $3.id)
             }
-            | membase '[' memrev IDENTIFIER ']' '=' eqn '\n'
+            | membase '[' memrev IDENTIFIER ']' '=' eqn
             {
                 ok1, ok2 := mpFunction.AddWMemory($1, $3, $4, $7.id)
                 if ok1 == false {
@@ -503,11 +518,11 @@ bodyline    : '\n'
             }
             ;
 
-body        : bodyline
-            | body bodyline
+body        : bodyline '\n'
+            | body bodyline '\n'
             ;
 
-define      : DEFINE IDENTIFIER MEM LITERAL '\n'
+define      : DEFINE IDENTIFIER MEM LITERAL
             {
                 if $4 < 0 || $4 > 3 {
                     Parserlex.Error("mem must be in range 0-3")
@@ -526,9 +541,14 @@ define      : DEFINE IDENTIFIER MEM LITERAL '\n'
                         return 1
                     }
                     mpFunction = NewMPFunction()
-                } arguments ')' '{' '\n' body '}' '\n'
+                } arguments ')' '{' '\n' body '}'
             {
-                 fmt.Println("def fun", $2, mpFunction)
+                stripped, err := mpFunction.Emit()
+                if err != nil {
+                    Parserlex.Error("function " + $2 + ": " + err.Error())
+                    return 1
+                }
+                mpFunctions[$2] = stripped
             }
             ;
 
@@ -573,9 +593,9 @@ asmstmnt    : op
             | mp
             ;
 
-asm         : label '\n'
-            | label asmstmnt '\n'
-            | asmstmnt '\n'
+asm         : label
+            | label asmstmnt
+            | asmstmnt
             ;
 
 %%
