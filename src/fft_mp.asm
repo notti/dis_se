@@ -5,10 +5,10 @@ define I mem 0b11
 
 define load(reg r1, reg i1, reg addr1, reg r2, reg i2) {
     addr2 = addr1 + 1
-    R[^addr1] = r1
-    I[^addr1] = i1
-    R[^addr2] = r2
-    I[^addr2] = i2
+    R[^8 addr1] = r1
+    I[^8 addr1] = i1
+    R[^8 addr2] = r2
+    I[^8 addr2] = i2
 }
 
 define bfr(unsigned reg i, unsigned reg j, signed fix7 reg wr, signed fix7 reg wi) {

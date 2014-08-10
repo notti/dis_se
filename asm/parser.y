@@ -22,6 +22,7 @@ var mpFunctions map[string]*MPFunction
     Type int
     Signed bool
     Fixed int
+    Variable int
 }
 
 %token <Num> LITERAL FIX REGISTER
@@ -263,7 +264,7 @@ membase     : IDENTIFIER
             ;
 
 memaddr     : IDENTIFIER
-            | '^' IDENTIFIER
+            | '^' LITERAL IDENTIFIER
             ;
 
 leftvar     : IDENTIFIER
