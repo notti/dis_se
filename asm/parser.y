@@ -10,8 +10,37 @@ type constScanner interface {
     AddConstf(id string, num float64)
 }
 
-var mpFunction *MPFunction
-var mpFunctions map[string]*MPFunction
+var mems map[string]int
+var mpFunction MPFunction
+var mpFunctions map[string]MPFunction
+
+func ParserInit() {
+    mems = make(map[string]int)
+    mpFunctions = make(map[string]MPFunction)
+}
+
+type variable struct {
+    id int
+    signed bool
+    fix int
+    typed bool
+}
+
+func mpMerge(a, b variable) (bool, int, bool, bool) {
+    if a.typed && b.typed {
+        if a.signed != b.signed || a.fix != b.fix {
+            return false, 0, false, false
+        }
+        return a.signed, a.fix, true, true
+    }
+    if a.typed {
+        return a.signed, a.fix, true, true
+    }
+    if b.typed {
+        return b.signed, b.fix, true, true
+    }
+    return false, 0, false, true
+}
 
 %}
 
@@ -19,10 +48,9 @@ var mpFunctions map[string]*MPFunction
     Num int64
     Fnum float64
     Id string
-    Type int
-    Signed bool
-    Fixed int
-    Variable int
+    Ival int
+    Bval bool
+    Var variable
 }
 
 %token <Num> LITERAL FIX REGISTER
@@ -38,9 +66,8 @@ var mpFunctions map[string]*MPFunction
 
 %type <Num> integer florint
 %type <Fnum> float florintF
-%type <Type> type
-%type <Signed> signed
-%type <Fixed> fixed
+%type <Ival> type fixed membase memrev signed
+%type <Var> var rightvar eqn
 
 
 %left '+'  '-' '|' '^'
@@ -219,21 +246,21 @@ type        : REG
 
 signed      : /* no modifier */
             {
-                $$ = false
+                $$ = -1
             }
             | UNSIGNED
             {
-                $$ = false
+                $$ = 0
             }
             | SIGNED
             {
-                $$ = true
+                $$ = 1
             }
             ;
 
 fixed       : /* not fixed */
             {
-                $$ = 0
+                $$ = -1
             }
             | FIX
             {
@@ -241,14 +268,20 @@ fixed       : /* not fixed */
                     Parserlex.Error("fix must be 1-7")
                     return 1
                 }
-                fmt.Println($1)
                 $$ = int($1)
             }
             ;
 
 argument    : signed fixed type IDENTIFIER
             {
-                if mpFunction.AddArgument($1, $2, $3, $4) == false {
+                signed := false
+                if $1 == 1 {
+                    signed = true
+                }
+                if $2 == -1 {
+                    $2 = 0
+                }
+                if mpFunction.AddArgument(signed, $2, $3, $4) == false {
                     Parserlex.Error("double argument " + $4)
                     return 1
                 }
@@ -260,56 +293,214 @@ arguments   : argument
             ;
 
 membase     : IDENTIFIER
-            | MEM IDENTIFIER
+            {
+                v, ok := mems[$1]
+                if !ok {
+                    Parserlex.Error("mem " + $1 + " not defined")
+                    return 1
+                }
+                $$ = v
+            }
+            | MEM LITERAL
+            {
+                if $2 < 0 || $2 > 3 {
+                    Parserlex.Error("mem must be in range 0-3")
+                    return 1
+                }
+                $$ = int($2)
+            }
             ;
 
-memaddr     : IDENTIFIER
-            | '^' LITERAL IDENTIFIER
-            ;
-
-leftvar     : IDENTIFIER
-            | membase '[' memaddr ']'
+memrev      :
+            {
+                $$ = 0
+            }
+            | '^' LITERAL
+            {
+                if $2 < 2 || $2 > 8 {
+                    Parserlex.Error("reverse addressing must be in range 2-8")
+                    return 1
+                }
+                $$ = int($2) - 1
+            }
             ;
 
 var         : IDENTIFIER
             {
-                fmt.Println("id", $1)
+                id, signed, fix, ok := mpFunction.GetNamedRegister($1)
+                if ok == false {
+                    Parserlex.Error("variable " + $1 + " unknown")
+                    return 1
+                }
+                $$.id = id
+                $$.signed = signed
+                $$.fix = fix
+                $$.typed = true
+
             }
             | membase '[' IDENTIFIER ']'
             {
-                fmt.Println("mem",$3)
+                id, ok := mpFunction.AddRMemory($1, $3)
+                if ok == false {
+                    Parserlex.Error("variable " + $3 + " unknown")
+                    return 1
+                }
+                $$.id = id
+                $$.signed = false
+                $$.fix = 0
+                $$.typed = false
             }
             ;
 
 
 rightvar    : signed fixed var
-            | LITERAL       // check for 0 1
             {
-                fmt.Println("lit", $1)
+                $$ = $3
+                switch $1 {
+                case 0:
+                    $$.signed = false
+                    $$.typed = true
+                case 1:
+                    $$.signed = true
+                    $$.typed = true
+                }
+                if $2 != -1 {
+                    $$.fix = $2
+                    $$.typed = true
+                }
+            }
+            | LITERAL
+            {
+                switch $1 {
+                case 0:
+                    $$.id = ALUIN_0
+                case 1:
+                    $$.id = ALUIN_1
+                default:
+                    Parserlex.Error("only 0 or 1 allowed as literal")
+                    return 1
+                }
+                $$.signed = false
+                $$.fix = 0
+                $$.typed = false
             }
             ;
 
 eqn         : rightvar
             | '(' eqn ')'
+            {
+                $$ = $2
+            }
             | eqn '+' eqn
             {
-                fmt.Println(" +")
+                signed, fix, typed, ok := mpMerge($1, $3)
+                if ok == false {
+                    Parserlex.Error("variable types don't match!")
+                    return 1
+                }
+                $$.signed = signed
+                $$.fix = fix
+                $$.typed = typed
+                $$.id = mpFunction.AddRegister(signed, fix)
+                mpFunction.AddTerm($1.id, $3.id, ALU_ADD, signed, fix, $$.id)
             }
             | eqn '-' eqn
             {
-                fmt.Println(" -")
+                signed, fix, typed, ok := mpMerge($1, $3)
+                if ok == false {
+                    Parserlex.Error("variable types don't match!")
+                    return 1
+                }
+                $$.signed = signed
+                $$.fix = fix
+                $$.typed = typed
+                $$.id = mpFunction.AddRegister(signed, fix)
+                mpFunction.AddTerm($1.id, $3.id, ALU_SUB, signed, fix, $$.id)
             }
             | eqn '*' eqn
             {
-                fmt.Println(" *")
+                signed, fix, typed, ok := mpMerge($1, $3)
+                if ok == false {
+                    Parserlex.Error("variable types don't match!")
+                    return 1
+                }
+                $$.signed = signed
+                $$.fix = fix
+                $$.typed = typed
+                $$.id = mpFunction.AddRegister(signed, fix)
+                mpFunction.AddTerm($1.id, $3.id, ALU_MUL, signed, fix, $$.id)
             }
             | eqn RSHIFT eqn
             {
-                fmt.Println(" >>")
+                signed, fix, typed, ok := mpMerge($1, $3)
+                if ok == false {
+                    Parserlex.Error("variable types don't match!")
+                    return 1
+                }
+                $$.signed = signed
+                $$.fix = fix
+                $$.typed = typed
+                $$.id = mpFunction.AddRegister(signed, fix)
+                mpFunction.AddTerm($1.id, $3.id, ALU_RSHIFT, signed, fix, $$.id)
+            }
+            | eqn '|' eqn
+            {
+                signed, fix, typed, ok := mpMerge($1, $3)
+                if ok == false {
+                    Parserlex.Error("variable types don't match!")
+                    return 1
+                }
+                $$.signed = signed
+                $$.fix = fix
+                $$.typed = typed
+                $$.id = mpFunction.AddRegister(signed, fix)
+                mpFunction.AddTerm($1.id, $3.id, ALU_OR, signed, fix, $$.id)
+            }
+            | eqn '^' eqn
+            {
+                signed, fix, typed, ok := mpMerge($1, $3)
+                if ok == false {
+                    Parserlex.Error("variable types don't match!")
+                    return 1
+                }
+                $$.signed = signed
+                $$.fix = fix
+                $$.typed = typed
+                $$.id = mpFunction.AddRegister(signed, fix)
+                mpFunction.AddTerm($1.id, $3.id, ALU_XOR, signed, fix, $$.id)
+            }
+            | eqn '&' eqn
+            {
+                signed, fix, typed, ok := mpMerge($1, $3)
+                if ok == false {
+                    Parserlex.Error("variable types don't match!")
+                    return 1
+                }
+                $$.signed = signed
+                $$.fix = fix
+                $$.typed = typed
+                $$.id = mpFunction.AddRegister(signed, fix)
+                mpFunction.AddTerm($1.id, $3.id, ALU_AND, signed, fix, $$.id)
             }
             ;
 
-bodyline    : leftvar '=' eqn '\n'
+bodyline    : '\n'
+            | IDENTIFIER '=' eqn '\n'
+            {
+                mpFunction.AddNamedRegister($1, $3.id)
+            }
+            | membase '[' memrev IDENTIFIER ']' '=' eqn '\n'
+            {
+                ok1, ok2 := mpFunction.AddWMemory($1, $3, $4, $7.id)
+                if ok1 == false {
+                    Parserlex.Error("variable " + $4 + " unknown")
+                    return 1
+                }
+                if ok2 == false {
+                    Parserlex.Error("can't assign memory location twize")
+                    return 1
+                }
+            }
             ;
 
 body        : bodyline
@@ -318,7 +509,15 @@ body        : bodyline
 
 define      : DEFINE IDENTIFIER MEM LITERAL '\n'
             {
-                 fmt.Println("def", $2, $4)
+                if $4 < 0 || $4 > 3 {
+                    Parserlex.Error("mem must be in range 0-3")
+                    return 1
+                }
+                if _, ok := mems[$2]; ok {
+                    Parserlex.Error("mem " + $2 + " already defined")
+                    return 1
+                }
+                mems[$2] = int($4)
             }
             | DEFINE IDENTIFIER '('
                 {
@@ -329,7 +528,7 @@ define      : DEFINE IDENTIFIER MEM LITERAL '\n'
                     mpFunction = NewMPFunction()
                 } arguments ')' '{' '\n' body '}' '\n'
             {
-                 fmt.Println("def fun", $2, mpFunction.Args)
+                 fmt.Println("def fun", $2, mpFunction)
             }
             ;
 

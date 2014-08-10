@@ -13,14 +13,14 @@ define load(reg r1, reg i1, reg addr1, reg r2, reg i2) {
 
 define bfr(unsigned reg i, unsigned reg j, signed fix7 reg wr, signed fix7 reg wi) {
     tr = wr * R[j] - wi * I[j]
-    qr = signed R[i] >> 1
+    qr = signed fix7 R[i] >> 1
     R[j] = qr - tr
     R[i] = qr + tr
 }
 
 define bfi(unsigned last i, unsigned last j, signed fix7 last wr, signed fix7 last wi) {
     ti = wr * I[j] + wi * R[j]
-    qi = signed I[i] >> 1
+    qi = signed fix7 I[i] >> 1
     I[j] = qi - ti
     I[i] = qi + ti
 }

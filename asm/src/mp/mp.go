@@ -13,6 +13,45 @@ const (
         ALUIN_1
 )
 
+const (
+        ALU_BOTH = iota - 1
+        ALU_SIMPLE
+        ALU_COMPLEX
+)
+
+const (
+        CALU_NOOP = iota
+        CALU_ADD
+        CALU_SUB
+        CALU_UMUL
+        CALU_SMUL
+        CALU_AND
+        CALU_OR
+        CALU_XOR
+)
+
+const (
+        SALU_NOOP = iota
+        SALU_ADD
+        SALU_SUB
+        SALU_SAR
+        SALU_SLR
+        SALU_AND
+        SALU_OR
+        SALU_XOR
+)
+
+const (
+        ALU_NOOP = iota
+        ALU_ADD
+        ALU_SUB
+        ALU_MUL
+        ALU_RSHIFT
+        ALU_AND
+        ALU_OR
+        ALU_XOR
+)
+
 type Argument struct {
     Id int
     Name string
@@ -44,6 +83,8 @@ type Term struct {
     A int
     B int
     Op int
+    Signed bool
+    Fix int
     C int
 }
 
@@ -52,10 +93,11 @@ type MPFunction struct {
     Terms []Term
     Variables []interface{}
     Id2Variable map[string]int
+    Out []WMemory
 }
 
-func NewMPFunction() *MPFunction {
-    return &MPFunction{make([]Argument, 0, 6), make([]Term, 0, 6), make([]interface{}, 0, 12), make(map[string]int)}
+func NewMPFunction() MPFunction {
+    return MPFunction{make([]Argument, 0, 6), make([]Term, 0, 6), make([]interface{}, 0, 12), make(map[string]int), make([]WMemory, 0, 5)}
 }
 
 func (f *MPFunction) NewVariable() int {
@@ -79,15 +121,23 @@ func (f *MPFunction) AddRegister(signed bool, fix int) int {
     return reg.Id
 }
 
-func (f *MPFunction) AddNamedRegister(signed bool, fix int, id string) int {
-    reg := f.AddRegister(signed, fix)
-    f.Id2Variable[id] = reg
-    return reg
+func (f *MPFunction) AddNamedRegister(name string, id int) {
+    f.Id2Variable[name] = id
 }
 
-func (f *MPFunction) GetNamedVariable(id string) (int, bool) {
-    reg, ok := f.Id2Variable[id]
-    return reg, ok
+func (f *MPFunction) GetNamedRegister(id string) (int, bool, int, bool) {
+    regid, ok := f.Id2Variable[id]
+    if ok == false {
+        return 0, false, 0, false
+    }
+    switch reg := f.Variables[regid].(type) {
+    default:
+        return 0, false, 0, false
+    case Register:
+        return regid, reg.Signed, reg.Fix, true
+    case Argument:
+        return regid, reg.Signed, reg.Fix, true
+    }
 }
 
 func (f *MPFunction) AddRMemory(base int, addr string) (int, bool) {
@@ -106,24 +156,24 @@ func (f *MPFunction) AddRMemory(base int, addr string) (int, bool) {
     return mem.Id, true
 }
 
-func (f *MPFunction) AddWMemory(base int, rev int, addr string) (int, bool) {
+func (f *MPFunction) AddWMemory(base int, rev int, addr string, id int) (bool, bool) {
     v, ok := f.Id2Variable[addr]
     if ok == false {
-        return 0, false
+        return false, false
     }
     for _, x := range f.Variables {
         if mem, ok := x.(WMemory); ok {
             if mem.Base == base && mem.Addr == v && mem.Rev == rev {
-                return 0, false
+                return true, false
             }
         }
     }
-    mem := RMemory{f.NewVariable(), base, v}
-    return mem.Id, true
+    f.Out = append(f.Out, WMemory{id, base, v, rev})
+    return true, true
 }
 
-func (f *MPFunction) AddTerm(a, b, op, c int) {
-    f.Terms = append(f.Terms, Term{a, b, op, c})
+func (f *MPFunction) AddTerm(a, b, op int, signed bool, fix, c int) {
+    f.Terms = append(f.Terms, Term{a, b, op, signed, fix, c})
 }
 
 /* end of leftvar: allocate variable (ev. mark as final in table)
