@@ -28,20 +28,23 @@ define bfi(unsigned last i, unsigned last j, signed fix7 last wr, signed fix7 la
 ; sync
 
 BEGIN_SYNC:
-    CMPL $SERIAL, 0x55
+    MOV $1, 0
+    MOVL $1, SERIAL
+    CMP $1, 0x55
     JNE BEGIN_SYNC
-    CMPL $SERIAL, 0xAA
+    MOVL $1, SERIAL
+    CMP $1, 0xAA
     JNE BEGIN_SYNC
 
-    MOVL $SERIAL, '1'
+    MOVL SERIAL, '1'
 
 LOAD:
     MOV $2, 0
 READ:
-    MOVL $0, $SERIAL
-    MOVH $0, $SERIAL     ; $0 = IR
-    MOVL $1, $SERIAL
-    MOVH $1, $SERIAL     ; $1 = IR
+    MOVL $0, SERIAL
+    MOVH $0, SERIAL     ; $0 = IR
+    MOVL $1, SERIAL
+    MOVH $1, SERIAL     ; $1 = IR
     load $0L, $0H, $2, $1L, $1H
     ADD $2, $2, 2
     CMP $2, N
@@ -78,10 +81,12 @@ INNER:
     CMP $0, N
     JULT FFT_STEP
 
-UNLOAD:
     MOV $0, 0
-    MOV $SERIAL, R[$0]
-    MOV $SERIAL, I[$0]
+UNLOAD:
+    MOVL $1, R[$0]
+    MOVL SERIAL, $1
+    MOVL $1, I[$0]
+    MOVL SERIAL, $1
     ADD $0, $0, 1
     CMP $0, N
     JULT UNLOAD
@@ -89,5 +94,5 @@ UNLOAD:
 
 SINE:
 for i in 0 to N {
-    DB sin(2 * M_PI * i / 256) * 128
+    DB sin(2 * M_PI * i / 256) * 128 >> 1
 }
