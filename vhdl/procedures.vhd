@@ -8,7 +8,7 @@ package procedures is
     subtype t_data2 is std_logic_vector(15 downto 0);
         
     type t_data_array is array(natural range <>) of t_data;
-    type t_data2_array is array(natural range <>) of t_data;
+    type t_data2_array is array(natural range <>) of t_data2;
     type t_2array is array(natural range <>) of std_logic_vector(1 downto 0);
     type t_3array is array(natural range <>) of std_logic_vector(2 downto 0);
 
