@@ -1,0 +1,46 @@
+$0 - $13 reg
+$14 0 (SHL SHR SAR 1)
+$15 immidiate
+
+ADD      | 0001                | 0 + (2) |
+ADDC     | 0010                | 0 + (2) |
+SUB      | 0011                | 0 + (2) |
+SUBB     | 0100                | 0 + (2) |
+AND      | 0101                | 0 + (2) |
+OR       | 0110                | 0 + (2) |
+XOR      | 0111                | 0 + (2) |
+SHL      | 1000                | 0 + (2) |
+SHR      | 1001                | 0 + (2) |
+SAR      | 1010                | 0 + (2) |
+         |                     |         |
+CMP      | 0000 0001           | 0 + (2) |
+MOV      | 1100 0001           | 0 + (1) |
+MOV      | 1100 1110           | 1 + (1) | left operand mem
+MOVL     | 1100 1010           | 1 + (1) | left operand mem
+MOVH     | 1100 1100           | 1 + (1) | left operand mem
+MOV      | 1101 1110           | 1 + (1) | right operand mem
+MOVL     | 1101 1010           | 1 + (1) | right operand mem
+MOVH     | 1101 1100           | 1 + (1) | right operand mem
+MOV      | 1110 1110           | 1 + (1) | left operand mpmem
+MOVL     | 1110 1010           | 1 + (1) | left operand mpmem
+MOVH     | 1110 1100           | 1 + (1) | left operand mpmem
+MOV      | 1111 1110           | 1 + (1) | right operand mpmem
+MOVL     | 1111 1010           | 1 + (1) | right operand mpmem
+MOVH     | 1111 1100           | 1 + (1) | right operand mpmem
+         |                     |         |
+JMP      | 0000 0000 0001      | 0 + (1) |
+JZ       | 0000 0000 0010      | 0 + (1) | Z=1
+JNZ  JNE | 0000 0000 0011      | 0 + (1) | Z=0
+JLE      | 0000 0000 0100      | 0 + (1) | Z=1 | S != V
+JLT      | 0000 0000 0101      | 0 + (1) | S != V
+JGE      | 0000 0000 0110      | 0 + (1) | S = V
+JGT      | 0000 0000 0111      | 0 + (1) | Z=0 & S = V
+JULE     | 0000 0000 1000      | 0 + (1) | C=1 | Z=1
+JULT     | 0000 0000 1001      | 0 + (1) | C=1
+JUGE     | 0000 0000 1010      | 0 + (1) | C=0
+JUGT     | 0000 0000 1011      | 0 + (1) | C=0 & Z=0
+MP       | 0000 0000 1100      | 0 + (3) |
+         |                     |         |
+         | 0000 0000 1111      |         | not allowed
+         |                     |         |
+NOP      | 0000 0000 0000 0000 | 0       |
