@@ -80,14 +80,18 @@ INNER:
 
 UNLOAD:
     MOV $0, 0
-    MOV $SERIAL, R[$0]
-    MOV $SERIAL, I[$0]
-    ADD $0, $0, 1
+    MOV $1, R[$0]
+    MOV $2, I[$0]
+    MOVL $SERIAL, $1
+    MOVL $SERIAL, $2
+    MOVH $SERIAL, $1
+    MOVH $SERIAL, $2
+    ADD $0, $0, 2
     CMP $0, N
     JULT UNLOAD
     JMP LOAD
 
 SINE:
 for i in 0 to N {
-    DB sin(2 * M_PI * i / 256) * 128
+    DW sin(2 * M_PI * i / 256) * 128
 }
