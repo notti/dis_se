@@ -1,0 +1,22 @@
+ADDRESS_SPACE progmem COMBINED WORD_ADDRESSING [0x00000000:0x00000FFF]
+    ADDRESS_RANGE RAMB16
+        BUS_BLOCK
+            soc_i/mem_i/Mram_mem1 [15:0];
+        END_BUS_BLOCK;
+    END_ADDRESS_RANGE;
+    ADDRESS_RANGE RAMB16
+        BUS_BLOCK
+            soc_i/mem_i/Mram_mem2 [15:0];
+        END_BUS_BLOCK;
+    END_ADDRESS_RANGE;
+    ADDRESS_RANGE RAMB16
+        BUS_BLOCK
+            soc_i/mem_i/Mram_mem3 [15:0];
+        END_BUS_BLOCK;
+    END_ADDRESS_RANGE;
+    ADDRESS_RANGE RAMB16
+        BUS_BLOCK
+            soc_i/mem_i/Mram_mem4 [15:0];
+        END_BUS_BLOCK;
+    END_ADDRESS_RANGE;
+END_ADDRESS_SPACE;
