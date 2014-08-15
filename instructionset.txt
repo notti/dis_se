@@ -14,19 +14,18 @@ SHR      | 1001                | 0 + (2) |
 SAR      | 1010                | 0 + (2) |
          |                     |         |
 CMP      | 0000 0001           | 0 + (2) |
-MOV      | 1100 0001           | 0 + (1) |
-MOV      | 1100 1110           | 1 + (1) | left operand mem
-MOVL     | 1100 1010           | 1 + (1) | left operand mem
-MOVH     | 1100 1100           | 1 + (1) | left operand mem
-MOV      | 1101 1110           | 1 + (1) | right operand mem
-MOVL     | 1101 1010           | 1 + (1) | right operand mem
-MOVH     | 1101 1100           | 1 + (1) | right operand mem
-MOV      | 1110 1110           | 1 + (1) | left operand mpmem
-MOVL     | 1110 1010           | 1 + (1) | left operand mpmem
-MOVH     | 1110 1100           | 1 + (1) | left operand mpmem
-MOV      | 1111 1110           | 1 + (1) | right operand mpmem
-MOVL     | 1111 1010           | 1 + (1) | right operand mpmem
-MOVH     | 1111 1100           | 1 + (1) | right operand mpmem
+MOV      | 1100 0011           | 0 + (1) |
+MOVL     | 1100 0001           | 0 + (1) |
+MOVH     | 1100 0010           | 0 + (1) |
+MOV      | 1100 0111           | 1 + (1) | left operand mem
+MOVL     | 1100 0101           | 1 + (1) | left operand mem
+MOVH     | 1100 0110           | 1 + (1) | left operand mem
+MOV      | 1100 1011           | 1 + (1) | right operand mem
+MOVL     | 1100 1001           | 1 + (1) | right operand mem
+MOVH     | 1100 1010           | 1 + (1) | right operand mem
+MOV      | 1100 1111           | 1 + (1) | right operand mpmem
+MOVL     | 1100 1101           | 1 + (1) | right operand mpmem
+MOVH     | 1100 1110           | 1 + (1) | right operand mpmem
          |                     |         |
 JMP      | 0000 0000 0001      | 0 + (1) |
 JZ       | 0000 0000 0010      | 0 + (1) | Z=1
