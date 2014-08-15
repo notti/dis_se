@@ -21,7 +21,8 @@ entity cpu is
         addrb   : out t_data2;
         dob     : in t_data2;
         web     : out std_logic_vector(1 downto 0);
-        dib     : out t_data2
+        dib     : out t_data2;
+        bbusy   : in std_logic
     );
 end cpu;
 
@@ -80,6 +81,25 @@ architecture Structural of cpu is
     signal C_result : std_logic_vector(15 downto 0);
     signal di1 : std_logic_vector(7 downto 0);
     signal di0 : std_logic_vector(7 downto 0);
+    signal pdata_rd : std_logic;
+    signal mp_busy : std_logic;
+    signal mp_start : std_logic;
+    signal reg_doaw : t_data2;
+    signal reg_dobw : t_data2;
+    signal reg_doa  : t_data;
+    signal reg_dob  : t_data;
+    signal reg_ena  : std_logic;
+    signal reg_enb  : std_logic;
+    signal reg_addra : t_data;
+    signal reg_addrb : t_data;
+    signal reg_hla  : std_logic;
+    signal reg_hlb  : std_logic;
+    signal mpmem_addra : std_logic_vector(9 downto 0);
+    signal mpmem_ena : std_logic;
+    signal mpmem_doa : t_data;
+    signal mpmem_addrb : std_logic_vector(9 downto 0);
+    signal mpmem_enb : std_logic;
+    signal mpmem_dob : t_data;
 begin
 
 mem_fetch: process(clk)
@@ -87,10 +107,12 @@ begin
     if rising_edge(clk) then
         if rst = '1' then
             PC <= (others => '0');
-        elsif do_jmp = '1' then
-            PC <= B_d + 1;
-        else
-            PC <= PC + 1;
+        elsif bbusy = '0' then
+            if do_jmp = '1' then
+                PC <= B_d + 1;
+            elsif fetch_state /= FETCH_CMD or doa(15 downto 4) /= "000000001100" or mp_busy = '0' then
+                PC <= PC + 1;
+            end if;
         end if;
     end if;
 end process mem_fetch;
@@ -126,27 +148,40 @@ begin
             reg_A_d <= reg(to_integer(unsigned(doa(7 downto 4))));
             reg_B_d <= reg(to_integer(unsigned(doa(3 downto 0))));
         end if;
+        if reg_ena = '1' then
+            reg_doaw <= reg(to_integer(unsigned(reg_addra(3 downto 0))));
+            reg_hla <= reg_addra(4);
+        end if;
+        if reg_enb = '1' then
+            reg_dobw <= reg(to_integer(unsigned(reg_addrb(3 downto 0))));
+            reg_hlb <= reg_addrb(4);
+        end if;
     end if;
 end process register_file;
+
+reg_doa <= reg_doaw(15 downto 8) when reg_hla = '1' else
+           reg_doaw(7 downto 0);
+reg_dob <= reg_dobw(15 downto 8) when reg_hlb = '1' else
+           reg_dobw(7 downto 0);
 
 
 decode_fetch: process(clk)
     variable hold_cmd : t_ctrl;
 begin
     if rising_edge(clk) then
-        if rst = '1' then
+        if rst = '1' or do_jmp = '1' or pdata_rd = '1' then
             decoded_cmd <= ctrl_noop;
             hold_cmd := ctrl_noop;
             fetch_state <= FETCH_CMD;
-        elsif do_jmp = '0' then
+        elsif bbusy = '0' then
             case fetch_state is
                 when FETCH_CMD =>
                     hold_cmd := ctrl_noop;
                     hold_cmd.A := doa(7 downto 4);
                     hold_cmd.B := doa(3 downto 0);
                     hold_cmd.C := doa(11 downto 8);
-                    hold_cmd.l := doa(9); hold_cmd.h := doa(10);
-                    hold_cmd.mov := doa(13 downto 12);
+                    hold_cmd.l := doa(8); hold_cmd.h := doa(9);
+                    hold_cmd.mov := doa(11 downto 10);
                     case doa(15 downto 12) is
                         when "0001" => hold_cmd.cmd := CMD_ADD;
                         when "0010" => hold_cmd.cmd := CMD_ADDC;
@@ -158,17 +193,16 @@ begin
                         when "1000" => hold_cmd.cmd := CMD_SHL;
                         when "1001" => hold_cmd.cmd := CMD_SHR;
                         when "1010" => hold_cmd.cmd := CMD_SAR;
+                        when "1100" => 
+                            if doa(11 downto 10) = "00" then
+                                hold_cmd.cmd := CMD_MOV;
+                            else
+                                hold_cmd.cmd := CMD_MOVM;
+                            end if;
                         when others =>
                     end case;
                     if doa(15 downto 8) = "00000001" then
                         hold_cmd.cmd := CMD_CMP;
-                    end if;
-                    if doa(15 downto 14) = "11" then
-                        if doa(8) = '1' then
-                            hold_cmd.cmd := CMD_MOV;
-                        else
-                            hold_cmd.cmd := CMD_MOVM;
-                        end if;
                     end if;
                     if doa(15 downto 8) = "00000000" then
                         case doa(7 downto 4) is
@@ -223,6 +257,41 @@ begin
     end if;
 end process decode_fetch;
 
+mp_start <= '1' when fetch_state = FETCH_CMD and doa(15 downto 4) = "000000001100" and mp_busy = '0' and do_jmp = '0' else
+            '0';
+
+mpmem_addra <= decoded_cmd.arg(1 downto 0) & std_logic_vector(B_d(7 downto 1)) & "0";
+mpmem_addrb <= decoded_cmd.arg(1 downto 0) & std_logic_vector(B_d(7 downto 1)) & "1";
+mpmem_ena <= decoded_cmd.l when decoded_cmd.mov = "11" and decoded_cmd.cmd = CMD_MOVM else
+             '0';
+mpmem_enb <= decoded_cmd.h when decoded_cmd.mov = "11" and decoded_cmd.cmd = CMD_MOVM else
+             '0';
+
+mp_i: entity work.mp
+port map
+(
+        rst => rst,
+        clk => clk,
+        clk2x => clk2x,
+        pdata => doa,
+        pdata_rd => pdata_rd,
+        start => mp_start,
+        busy => mp_busy,
+
+        mem_addra => mpmem_addra,
+        mem_ena => mpmem_ena,
+        mem_doa => mpmem_doa,
+        mem_addrb => mpmem_addrb,
+        mem_enb => mpmem_enb,
+        mem_dob => mpmem_dob,
+
+        reg_addra => reg_addra,
+        reg_ena => reg_ena,
+        reg_doa => reg_doa,
+        reg_addrb => reg_addrb,
+        reg_enb => reg_enb,
+        reg_dob => reg_dob
+);
 
 A_d <= unsigned(decoded_cmd.A_d) when decoded_cmd.A = "1111" else
        (others => '0') when decoded_cmd.A = "1110" else
@@ -285,11 +354,14 @@ begin
                     reg_C <= decoded_cmd.A;
                     wb_C <= "11";
                 when CMD_MOVM => 
-                    case decoded_cmd.mov is
-                        when "01" =>  wb_which <= WB_MEM;   wb_C <= decoded_cmd.h & decoded_cmd.l;
-                        when "10" =>  wb_which <= WB_MPMEM; wb_C <= decoded_cmd.h & decoded_cmd.l;
-                        when others =>
-                    end case;
+                    if decoded_cmd.mov(1) = '1' then
+                        wb_C <= decoded_cmd.h & decoded_cmd.l;
+                        if decoded_cmd.mov(0) = '0' then
+                            wb_which <= WB_MEM;
+                        else
+                            wb_which <= WB_MPMEM;
+                        end if;
+                    end if;
                 when others =>
             end case;
             case decoded_cmd.cmd is
@@ -329,17 +401,18 @@ do_jmp <= '0' when decoded_cmd.cmd /= CMD_JMP else
                    (decoded_cmd.cmp = CMP_UGT and (C_flag = '0' and Z_flag = '0')) else
           '0';
 
-web(0) <= decoded_cmd.l when decoded_cmd.mov = "00" and decoded_cmd.cmd = CMD_MOVM else
+web(0) <= decoded_cmd.l when decoded_cmd.mov = "01" and decoded_cmd.cmd = CMD_MOVM else
           '0';
-web(1) <= decoded_cmd.h when decoded_cmd.mov = "00" and decoded_cmd.cmd = CMD_MOVM else
+web(1) <= decoded_cmd.h when decoded_cmd.mov = "01" and decoded_cmd.cmd = CMD_MOVM else
           '0';
-enb <= '1' when (decoded_cmd.mov = "00" or decoded_cmd.mov = "01") and decoded_cmd.cmd = CMD_MOVM else
+enb <= '1' when (decoded_cmd.mov = "01" or decoded_cmd.mov = "10") and decoded_cmd.cmd = CMD_MOVM else
        '0';
-addrb <= std_logic_vector(unsigned(decoded_cmd.arg) + A_d) when decoded_cmd.mov = "00" else -- write
+addrb <= std_logic_vector(unsigned(decoded_cmd.arg) + A_d) when decoded_cmd.mov = "01" else -- write
          std_logic_vector(unsigned(decoded_cmd.arg) + B_d); --read
 dib <= std_logic_vector(B_d);
 
 reg_C_d <= dob when wb_which = WB_MEM else
-           C_result; -- todo MPMEM
+           mpmem_dob & mpmem_doa when wb_which = WB_MPMEM else
+           C_result;
 
 end Structural;
