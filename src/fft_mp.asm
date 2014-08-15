@@ -5,22 +5,22 @@ define I mem 0b11
 
 define load(reg r1, reg i1, reg addr1, reg r2, reg i2) {
     addr2 = addr1 + 1
-    R[^8 addr1] = r1
-    I[^8 addr1] = i1
-    R[^8 addr2] = r2
-    I[^8 addr2] = i2
+    R[^addr1] = r1
+    I[^addr1] = i1
+    R[^addr2] = r2
+    I[^addr2] = i2
 }
 
 define bfr(unsigned reg i, unsigned reg j, signed fix7 reg wr, signed fix7 reg wi) {
     tr = wr * R[j] - wi * I[j]
-    qr = signed fix7 R[i] >> 1
+    qr = signed R[i] >> 1
     R[j] = qr - tr
     R[i] = qr + tr
 }
 
 define bfi(unsigned last i, unsigned last j, signed fix7 last wr, signed fix7 last wi) {
     ti = wr * I[j] + wi * R[j]
-    qi = signed fix7 I[i] >> 1
+    qi = signed I[i] >> 1
     I[j] = qi - ti
     I[i] = qi + ti
 }
@@ -28,23 +28,20 @@ define bfi(unsigned last i, unsigned last j, signed fix7 last wr, signed fix7 la
 ; sync
 
 BEGIN_SYNC:
-    MOV $1, 0
-    MOVL $1, SERIAL
-    CMP $1, 0x55
+    CMPL $SERIAL, 0x55
     JNE BEGIN_SYNC
-    MOVL $1, SERIAL
-    CMP $1, 0xAA
+    CMPL $SERIAL, 0xAA
     JNE BEGIN_SYNC
 
-    MOVL SERIAL, '1'
+    MOVL $SERIAL, '1'
 
 LOAD:
     MOV $2, 0
 READ:
-    MOVL $0, SERIAL
-    MOVH $0, SERIAL     ; $0 = IR
-    MOVL $1, SERIAL
-    MOVH $1, SERIAL     ; $1 = IR
+    MOVL $0, $SERIAL
+    MOVH $0, $SERIAL     ; $0 = IR
+    MOVL $1, $SERIAL
+    MOVH $1, $SERIAL     ; $1 = IR
     load $0L, $0H, $2, $1L, $1H
     ADD $2, $2, 2
     CMP $2, N
@@ -81,18 +78,20 @@ INNER:
     CMP $0, N
     JULT FFT_STEP
 
-    MOV $0, 0
 UNLOAD:
-    MOVL $1, R[$0]
-    MOVL SERIAL, $1
-    MOVL $1, I[$0]
-    MOVL SERIAL, $1
-    ADD $0, $0, 1
+    MOV $0, 0
+    MOV $1, R[$0]
+    MOV $2, I[$0]
+    MOVL $SERIAL, $1
+    MOVL $SERIAL, $2
+    MOVH $SERIAL, $1
+    MOVH $SERIAL, $2
+    ADD $0, $0, 2
     CMP $0, N
     JULT UNLOAD
     JMP LOAD
 
 SINE:
 for i in 0 to N {
-    DB sin(2 * M_PI * i / 256) * 128 >> 1
+    DW sin(2 * M_PI * i / 256) * 128
 }
