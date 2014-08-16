@@ -101,6 +101,54 @@ type Term struct {
     C int
 }
 
+type ComplexOp struct {
+    A int
+    B int
+    Op int
+    Point int
+    C int
+}
+
+func (f *Term) ToComplex() ComplexOp {
+    var ret ComplexOp
+    ret.A = f.A
+    ret.B = f.B
+    ret.C = f.C
+    ret.Point = f.Fix
+    ret.Op = f.Op
+    if f.Op == ALU_MUL {
+        if f.Signed {
+            ret.Op = CALU_SMUL
+        } else {
+            ret.Op = CALU_UMUL
+        }
+    }
+    return ret
+}
+
+type SimpleOp struct {
+    A int
+    B int
+    Op int
+    C int
+}
+
+func (f *Term) ToSimple() SimpleOp {
+    var ret SimpleOp
+    ret.A = f.A
+    ret.B = f.B
+    ret.C = f.C
+    ret.Op = f.Op
+    if f.Op == ALU_RSHIFT {
+        if f.Signed {
+            ret.Op = SALU_SAR
+        } else {
+            ret.Op = SALU_SLR
+        }
+    }
+    return ret
+}
+
 type MPFunction struct {
     Args []Argument
     Terms []Term
@@ -117,15 +165,18 @@ func (f *MPFunction) NewVariable() int {
     return len(f.Variables)
 }
 
-func (f *MPFunction) AddArgument(signed bool, fix int, t int, membase int, id string) bool {
+func (f *MPFunction) AddArgument(signed bool, fix int, t int, membase int, id string) error {
     if _, ok := f.Id2Variable[id]; ok {
-        return false
+        return errors.New("double argument " + id)
+    }
+    if len(f.Args) > 0 && f.Args[len(f.Args)-1].Type == ARG_NONE && t != ARG_NONE {
+        return errors.New("ARG_NONE must be last arguments")
     }
     arg := Argument{f.NewVariable(), id, signed, fix, t, membase}
     f.Args = append(f.Args, arg)
     f.Variables = append(f.Variables, arg)
     f.Id2Variable[id] = arg.Id
-    return true
+    return nil
 }
 
 func (f *MPFunction) AddRegister(signed bool, fix int) int {
@@ -321,10 +372,14 @@ func (p *pipeline) String() string {
     return ret
 }
 
-func (f MPFunction) Emit() ([]Argument, error) {
+func (f *MPFunction) Emit(id string) ([13]uint16, []Argument, error) {
+    var code [13]uint16
     if len(f.Terms) > 6 {
-        return f.Args, errors.New("too many Terms")
+        return code, f.Args, errors.New("too many Terms")
     }
+    fmt.Fprintln(os.Stderr, "-------------------")
+    fmt.Fprintln(os.Stderr, "- MP", id)
+    fmt.Fprintln(os.Stderr, "-------------------")
     fmt.Fprintln(os.Stderr, f.Args)
     fmt.Fprintln(os.Stderr, f.Terms)
     fmt.Fprintln(os.Stderr, f.Out)
@@ -339,7 +394,7 @@ func (f MPFunction) Emit() ([]Argument, error) {
 ///// decode_fetch
     for _, a := range f.Args {
         if i, ok := p.var0.add(a.Id); ok == false {
-            return f.Args, errors.New("too many arguments")
+            return code, f.Args, errors.New("too many arguments")
         } else {
             arg_type[i] = a.Type
             arg_memchunk[i] = a.Membase
@@ -350,7 +405,7 @@ func (f MPFunction) Emit() ([]Argument, error) {
     for _, x := range f.Variables {
         if mem, ok := x.(RMemory); ok {
             if i, ok := p.var1.add(mem.Id); ok == false {
-                return f.Args, errors.New("too many memory reads")
+                return code, f.Args, errors.New("too many memory reads")
             } else {
                 mem_fetch[i] = 1
                 mem_memchunk[i] = mem.Base
@@ -379,14 +434,14 @@ func (f MPFunction) Emit() ([]Argument, error) {
                             }
                         }
                         if found == false {
-                            return f.Args, errors.New("Read/Write combination not possible")
+                            return code, f.Args, errors.New("Read/Write combination not possible")
                         }
                     }
                 }
                 checked = true
             }
             if i, ok := p.var1.addFixed(arg.Id, MEM_FIXED); ok == false {
-                return f.Args, errors.New("too many memory reads")
+                return code, f.Args, errors.New("too many memory reads")
             } else {
                 arg_assign[i] = arg.Id
                 arg_val[i] = 1
@@ -398,7 +453,7 @@ func (f MPFunction) Emit() ([]Argument, error) {
         if x.A >=0 {
             if arg, ok := f.Variables[x.A].(Argument); ok {
                 if i, ok := p.var1.add(arg.Id); ok == false {
-                    return f.Args, errors.New("too many variables after fetch!")
+                    return code, f.Args, errors.New("too many variables after fetch!")
                 } else {
                     arg_assign[i] = arg.Id
                     arg_val[i] = 1
@@ -408,7 +463,7 @@ func (f MPFunction) Emit() ([]Argument, error) {
         if x.B >=0 {
             if arg, ok := f.Variables[x.B].(Argument); ok {
                 if i, ok := p.var1.add(arg.Id); ok == false {
-                    return f.Args, errors.New("too many variables after fetch!")
+                    return code, f.Args, errors.New("too many variables after fetch!")
                 } else {
                     arg_assign[i] = arg.Id
                     arg_val[i] = 1
@@ -425,7 +480,7 @@ func (f MPFunction) Emit() ([]Argument, error) {
         }
     }
     if len(p.s1op) > 2 {
-        return f.Args, errors.New("too many complex ops!")
+        return code, f.Args, errors.New("too many complex ops!")
     }
     if len(f.Terms) > 4 {
         //assign non complex ops if we have lot's of stuff todo
@@ -456,7 +511,7 @@ func (f MPFunction) Emit() ([]Argument, error) {
         }
     }
     if len(f.Terms) > 4 {
-        return f.Args, errors.New("too many simple ops or impossible variable combination for stage1!")
+        return code, f.Args, errors.New("too many simple ops or impossible variable combination for stage1!")
     }
     for _, op := range f.Terms {
         p.var1.setFixed(op.A, TERM_FIXED)
@@ -473,17 +528,17 @@ func (f MPFunction) Emit() ([]Argument, error) {
         if id, ok := p.var1.place(op.A); ok {
             p.s1op[i].A = id
         } else {
-            return f.Args, errors.New("impossible variable combination in stage1")
+            return code, f.Args, errors.New("impossible variable combination in stage1")
         }
         if id, ok := p.var1.place(op.B); ok {
             p.s1op[i].B = id
         } else {
-            return f.Args, errors.New("impossible variable combination in stage1")
+            return code, f.Args, errors.New("impossible variable combination in stage1")
         }
         if id, ok := p.var2.add(op.C); ok {
             p.s1op[i].C = id
         } else {
-            return f.Args, errors.New("impossible variable combination in stage1")
+            return code, f.Args, errors.New("impossible variable combination in stage1")
         }
     }
 ///// stage2
@@ -517,7 +572,7 @@ func (f MPFunction) Emit() ([]Argument, error) {
         }
     }
     if len(f.Terms) > 2 {
-        return f.Args, errors.New("too many simple ops or impossible variable combination for stage 2!")
+        return code, f.Args, errors.New("too many simple ops or impossible variable combination for stage 2!")
     }
     for _, op := range f.Terms {
         p.var2.setFixed(op.A, TERM_FIXED)
@@ -534,17 +589,17 @@ func (f MPFunction) Emit() ([]Argument, error) {
         if id, ok := p.var2.place(op.A); ok {
             p.s2op[i].A = id
         } else {
-            return f.Args, errors.New("impossible variable combination in stage2")
+            return code, f.Args, errors.New("impossible variable combination in stage2")
         }
         if id, ok := p.var2.place(op.B); ok {
             p.s2op[i].B = id
         } else {
-            return f.Args, errors.New("impossible variable combination in stage2")
+            return code, f.Args, errors.New("impossible variable combination in stage2")
         }
         if id, ok := p.var3.add(op.C); ok {
             p.s2op[i].C = id
         } else {
-            return f.Args, errors.New("impossible variable combination in stage2")
+            return code, f.Args, errors.New("impossible variable combination in stage2")
         }
     }
 ///// stage3
@@ -560,7 +615,7 @@ func (f MPFunction) Emit() ([]Argument, error) {
         }
     }
     if len(f.Terms) > 0 {
-        return f.Args, errors.New("too many simple ops or impossible variable combination for stage 3!")
+        return code, f.Args, errors.New("too many simple ops or impossible variable combination for stage 3!")
     }
     for _, out := range f.Out {
         p.var3.setFixed(out.Id, MEM_FIXED)
@@ -573,17 +628,17 @@ func (f MPFunction) Emit() ([]Argument, error) {
         if id, ok := p.var3.place(op.A); ok {
             p.s3op[i].A = id
         } else {
-            return f.Args, errors.New("impossible variable combination in stage1")
+            return code, f.Args, errors.New("impossible variable combination in stage1")
         }
         if id, ok := p.var3.place(op.B); ok {
             p.s3op[i].B = id
         } else {
-            return f.Args, errors.New("impossible variable combination in stage1")
+            return code, f.Args, errors.New("impossible variable combination in stage1")
         }
         if id, ok := p.var4.add(op.C); ok {
             p.s3op[i].C = id
         } else {
-            return f.Args, errors.New("impossible variable combination in stage1")
+            return code, f.Args, errors.New("impossible variable combination in stage1")
         }
     }
 ///// writeback
@@ -596,12 +651,37 @@ func (f MPFunction) Emit() ([]Argument, error) {
         } else if id, ok := p.var4.place(out.Addr); ok {
             wb_assign[i] = id | 8
         } else {
-            return f.Args, errors.New("impossible address assignment in writeback")
+            return code, f.Args, errors.New("impossible address assignment in writeback")
         }
 
     }
 
-    fmt.Fprintln(os.Stderr, &p)
+    var s1 [2]ComplexOp
+    var s2 [2]SimpleOp
+    var s3 [2]SimpleOp
+
+    switch len(p.s1op) {
+    case 2:
+        s1[1] = p.s1op[1].ToComplex()
+        fallthrough
+    case 1:
+        s1[0] = p.s1op[0].ToComplex()
+    }
+    switch len(p.s2op) {
+    case 2:
+        s2[1] = p.s2op[1].ToSimple()
+        fallthrough
+    case 1:
+        s2[0] = p.s2op[0].ToSimple()
+    }
+    switch len(p.s3op) {
+    case 2:
+        s3[1] = p.s3op[1].ToSimple()
+        fallthrough
+    case 1:
+        s3[0] = p.s3op[0].ToSimple()
+    }
+
     fmt.Fprintln(os.Stderr, "-------------------")
     fmt.Fprintln(os.Stderr, arg_type)
     fmt.Fprintln(os.Stderr, arg_memchunk)
@@ -609,13 +689,29 @@ func (f MPFunction) Emit() ([]Argument, error) {
     fmt.Fprintln(os.Stderr, arg_val)
     fmt.Fprintln(os.Stderr, mem_fetch)
     fmt.Fprintln(os.Stderr, mem_memchunk)
-    fmt.Fprintln(os.Stderr, p.s1op)
-    fmt.Fprintln(os.Stderr, p.s2op)
-    fmt.Fprintln(os.Stderr, p.s3op)
+    fmt.Fprintln(os.Stderr, s1)
+    fmt.Fprintln(os.Stderr, s2)
+    fmt.Fprintln(os.Stderr, s3)
     fmt.Fprintln(os.Stderr, wb)
     fmt.Fprintln(os.Stderr, wb_memchunk)
     fmt.Fprintln(os.Stderr, wb_bitrev)
     fmt.Fprintln(os.Stderr, wb_assign)
-    return f.Args, nil
+    fmt.Fprintln(os.Stderr, "-------------------")
+
+    code[0] = uint16(arg_memchunk[1] << 14 | arg_memchunk[0] << 12 | arg_type[5] << 10 | arg_type[4] << 8 | arg_type[3] << 6 | arg_type[2] << 4 | arg_type[1] << 2 | arg_type[0])
+    code[1] = uint16((arg_assign[0] & 0x3) << 14 | arg_val[5] << 13 | arg_val[4] << 12 | arg_val[3] << 11 | arg_val[2] << 10 | arg_val[1] << 9 | arg_val[0] << 8 | arg_memchunk[5] << 6 | arg_memchunk[4] << 4 | arg_memchunk[3] << 2 | arg_memchunk[2])
+    code[2] = uint16(arg_assign[5] << 13 | arg_assign[4] << 10 | arg_assign[3] << 7 | arg_assign[2] << 4 | arg_assign[1] << 1 | arg_assign[0] >> 2)
+    code[3] = uint16(mem_memchunk[4] << 14 | mem_memchunk[3] << 12 | mem_memchunk[2] << 10 | mem_memchunk[1] << 8 | mem_memchunk[0] << 6 | mem_fetch[5] << 5 | mem_fetch[4] << 4 | mem_fetch[3] << 3 | mem_fetch[2] << 2 | mem_fetch[1] << 1 | mem_fetch[0])
+    code[4] = uint16((s1[0].C & 0x3) << 14 | s1[0].Point << 11 | s1[0].Op << 8 | s1[0].B << 5 | s1[0].A << 2 | mem_memchunk[5])
+    code[5] = uint16(s1[1].C << 13 | s1[1].Point << 10 | s1[1].Op << 7 | s1[1].B << 4 | s1[1].A << 1 | s1[0].C >> 2)
+    code[6] = uint16((s2[1].B & 0x1) << 15 | s2[1].A << 12 | s2[0].C << 9 | s2[0].Op << 6 | s2[0].B << 3 | s2[0].A)
+    code[7] = uint16((s3[0].Op & 0x3) << 14 | s3[0].B << 11 | s3[0].A << 8 | s2[1].C << 5 | s2[1].Op << 2 | s2[1].B >> 1)
+    code[8] = uint16(s3[1].C << 13 | s3[1].Op << 10 | s3[1].B << 7 | s3[1].A << 4 | s3[0].C << 1 | s3[0].Op >> 2)
+    code[9] = uint16(wb_memchunk[4] << 14 | wb_memchunk[3] << 12 | wb_memchunk[2] << 10 | wb_memchunk[1] << 8 | wb_memchunk[0] << 6 | wb[5] << 5 | wb[4] << 4 | wb[3] << 3 | wb[2] << 2 | wb[1] << 1 | wb[0])
+    code[10] = uint16((wb_bitrev[4] & 0x3) << 14 | wb_bitrev[3] << 11 | wb_bitrev[2] << 8 | wb_bitrev[1] << 5 | wb_bitrev[0] << 2 | wb_memchunk[5])
+    code[11] = uint16(wb_assign[2] << 12 | wb_assign[1] << 8 | wb_assign[0] << 4 | wb_bitrev[5] << 1 | wb_bitrev[4] >> 2)
+    code[12] = uint16(wb_assign[5] << 8 | wb_assign[4] << 4 | wb_assign[3])
+
+    return code, f.Args, nil
 }
 
