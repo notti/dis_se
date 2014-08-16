@@ -3,24 +3,24 @@ const N 256
 define R mem 0b10
 define I mem 0b11
 
-define load(reg r1, reg i1, reg addr1, reg r2, reg i2) {
+define load 0(reg r1, reg i1, reg addr1, reg r2, reg i2) {
     addr2 = addr1 + 1
-    R[^addr1] = r1
-    I[^addr1] = i1
-    R[^addr2] = r2
-    I[^addr2] = i2
+    R[^8 addr1] = r1
+    I[^8 addr1] = i1
+    R[^8 addr2] = r2
+    I[^8 addr2] = i2
 }
 
-define bfr(unsigned reg i, unsigned reg j, signed fix7 reg wr, signed fix7 reg wi) {
+define bfr 1(unsigned reg i, unsigned reg j, signed fix7 reg wr, signed fix7 reg wi) {
     tr = wr * R[j] - wi * I[j]
-    qr = signed R[i] >> 1
+    qr = signed fix7 R[i] >> 1
     R[j] = qr - tr
     R[i] = qr + tr
 }
 
-define bfi(unsigned last i, unsigned last j, signed fix7 last wr, signed fix7 last wi) {
+define bfi 2(unsigned last i, unsigned last j, signed fix7 last wr, signed fix7 last wi) {
     ti = wr * I[j] + wi * R[j]
-    qi = signed I[i] >> 1
+    qi = signed fix7 I[i] >> 1
     I[j] = qi - ti
     I[i] = qi + ti
 }
@@ -28,21 +28,24 @@ define bfi(unsigned last i, unsigned last j, signed fix7 last wr, signed fix7 la
 ; sync
 
 BEGIN_SYNC:
-    CMPL $SERIAL, 0x55
+    MOV $0, SERIAL[0]
+    CMP $0, 0x55
     JNE BEGIN_SYNC
-    CMPL $SERIAL, 0xAA
+    MOV $0, SERIAL[0]
+    CMP $0, 0xAA
     JNE BEGIN_SYNC
 
-    MOVL $SERIAL, '1'
+    MOV $0, '1'
+    MOVL SERIAL[0], $0
 
 LOAD:
     MOV $2, 0
 READ:
-    MOVL $0, $SERIAL
-    MOVH $0, $SERIAL     ; $0 = IR
-    MOVL $1, $SERIAL
-    MOVH $1, $SERIAL     ; $1 = IR
-    load $0L, $0H, $2, $1L, $1H
+    MOVL $0, SERIAL[0]
+    MOVH $0, SERIAL[0]     ; $0 = IR
+    MOVL $1, SERIAL[0]
+    MOVH $1, SERIAL[0]     ; $1 = IR
+    load $0L, $0H, $2L, $1L, $1H
     ADD $2, $2, 2
     CMP $2, N
     JULT READ
@@ -63,7 +66,7 @@ OUTER:
 
 INNER:
     ADD $4, $5, $0
-    bfr $5, $4, $7, $8
+    bfr $5L, $4L, $7L, $8L
     bfi
     ADD $5, $5, $2
     CMP $5, N
@@ -82,10 +85,10 @@ UNLOAD:
     MOV $0, 0
     MOV $1, R[$0]
     MOV $2, I[$0]
-    MOVL $SERIAL, $1
-    MOVL $SERIAL, $2
-    MOVH $SERIAL, $1
-    MOVH $SERIAL, $2
+    MOVL SERIAL[0], $1
+    MOVL SERIAL[0], $2
+    MOVH SERIAL[0], $1
+    MOVH SERIAL[0], $2
     ADD $0, $0, 2
     CMP $0, N
     JULT UNLOAD
@@ -93,5 +96,5 @@ UNLOAD:
 
 SINE:
 for i in 0 to N {
-    DW sin(2 * M_PI * i / 256) * 128
+    DW int(sin(2 * M_PI * i / 256) * 128) >> 1
 }
