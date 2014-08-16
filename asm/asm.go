@@ -12,6 +12,8 @@ func main() {
     if err != nil { panic(err) }
 
     scan := scanner.NewScanner(input)
-    parser.ParserParse(scan)
-    scan.ScanOk()
+    parser.ParserInit()
+    if parser.ParserParse(scan) == 0 {
+        scan.ScanOk()
+    }
 }

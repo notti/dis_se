@@ -42,7 +42,8 @@ architecture Structural of mp_writeback is
 begin
 
 arg_mux: for i in 5 downto 0 generate
-   arg(i) <= bitrev(index2val(arg_in, cmd_in.wb_assign(i)), cmd_in.wb_bitrev(i));
+    arg(i) <= bitrev(index2val(arg_in, cmd_in.wb_assign(i)(2 downto 0)), cmd_in.wb_bitrev(i)) when cmd_in.wb_assign(i)(3) = '0' else
+              bitrev(index2val(val_in, cmd_in.wb_assign(i)(2 downto 0)), cmd_in.wb_bitrev(i));
 end generate arg_mux;
 
 state: process(clk)

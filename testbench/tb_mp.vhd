@@ -49,7 +49,7 @@ architecture behav of tb_mp is
                pdata <= tmp((i+1)*16-1 downto i*16);
                wait for 20 ns;
            end loop;
-           pdata(VLIW_HIGH mod 8 downto 0) <= tmp(VLIW_HIGH downto (VLIW_HIGH/16)*16);
+           pdata(VLIW_HIGH mod 16 downto 0) <= tmp(VLIW_HIGH downto (VLIW_HIGH/16)*16);
            wait for 40 ns;
        end procedure;
 
@@ -1223,12 +1223,12 @@ begin
                 1 => "111",
                 others => (others => '0')),
             wb_assign => (
-                0 => "010",
-                1 => "011",
-                2 => "000",
-                3 => "000",
-                4 => "000",
-                5 => "000"),
+                0 => "0010",
+                1 => "0011",
+                2 => "0000",
+                3 => "0000",
+                4 => "0000",
+                5 => "0000"),
             noop => '0'
             ),
             0,
@@ -1320,12 +1320,12 @@ begin
                 5 => "00"),
             wb_bitrev => (others => (others => '0')),
             wb_assign => (
-                0 => "000",
-                1 => "001",
-                2 => "010",
-                3 => "011",
-                4 => "100",
-                5 => "101"),
+                0 => "0000",
+                1 => "0001",
+                2 => "0010",
+                3 => "0011",
+                4 => "0100",
+                5 => "0101"),
             noop => '0'
             ),
             1,
@@ -1412,12 +1412,12 @@ begin
                 5 => "00"),
             wb_bitrev => (others => (others => '0')),
             wb_assign => (
-                0 => "000",
-                1 => "001",
-                2 => "010",
-                3 => "011",
-                4 => "100",
-                5 => "101"),
+                0 => "0000",
+                1 => "0001",
+                2 => "0010",
+                3 => "0011",
+                4 => "0100",
+                5 => "0101"),
             noop => '0'
             ),
             2,
