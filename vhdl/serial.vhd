@@ -33,16 +33,25 @@ architecture Structural of serial is
     signal rx_valid : std_logic;
     signal rx_d : std_logic_vector(7 downto 0);
     signal in_busy : std_logic;
+    signal in_busy_1 : std_logic;
     signal out_busy : std_logic;
     signal tx_read : std_logic;
     signal tx_empty : std_logic;
-    type out_state_t is (IDLE, READ, WRITE);
+    type out_state_t is (IDLE, READ);
     signal out_state : out_state_t;
 begin
 
+process(clk)
+begin
+    if rising_edge(clk) then
+        in_busy_1 <= in_busy;
+    end if;
+end process;
+
 en_out <= ena and wea;
 en_in <= ena and not wea;
-busy <= in_busy when en_in = '1' else
+busy <= '1' when en_in = '1' and in_busy = '1' and in_busy_1 = '1' else
+        '1' when en_in = '1' and in_busy_1 = '1' else
         out_busy when en_out = '1' else
         '0';
 
@@ -91,8 +100,6 @@ begin
                     end if;
                 when READ =>
                     tx_read <= '0';
-                    out_state <= WRITE;
-                when WRITE =>
                     if tx_busy = '0' then
                         tx_start <= '1';
                         out_state <= IDLE;

@@ -14,7 +14,7 @@ WORK = --work=work
 %.o: %.vhd
 	$(GHDL) -a $(GHDLFLAGS) $(LIBS) $(WORK) $<
 
-tb_p4mem1k8t.ghw tb_mp.ghw tb_mp_writeback.ghw tb_mp_stage3.ghw tb_mp_stage2.ghw tb_mp_stage1.ghw tb_complex_alu.ghw tb_simple_alu.ghw tb_shift.ghw tb_mp_decode_fetch.ghw tb_mp_indirect_fetch.ghw: %.ghw: %
+tb_serial.ghw tb_p4mem1k8t.ghw tb_mp.ghw tb_mp_writeback.ghw tb_mp_stage3.ghw tb_mp_stage2.ghw tb_mp_stage1.ghw tb_complex_alu.ghw tb_simple_alu.ghw tb_shift.ghw tb_mp_decode_fetch.ghw tb_mp_indirect_fetch.ghw: %.ghw: %
 	./$< --wave=$@
 
 export 
@@ -70,3 +70,7 @@ tb_p4mem1k8T.o: procedures.o p4mem1k8T.o
 p4mem1k8T.o: procedures.o p4mem1k8.o
 p4mem1k8.o: procedures.o
 r6w2mem1k8.o: procedures.o p4mem1k8.o
+fifo.o: procedures.o
+rs232.o: procedures.o
+serial.o: procedures.o fifo.o rs232.o
+tb_serial.o: procedures.o serial.o

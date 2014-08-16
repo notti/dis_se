@@ -33,7 +33,7 @@ architecture Structural of rs232 is
     signal cnt : integer;
     signal clk16 : std_logic;
 
-    signal tx_reg : std_logic_vector(8 downto 0);
+    signal tx_reg : std_logic_vector(9 downto 0);
     signal rx_reg : std_logic_vector(7 downto 0);
     signal tx_cnt : unsigned(3 downto 0);
     signal tx_bit : unsigned(3 downto 0);
@@ -68,7 +68,7 @@ begin
             case tx_state is
                 when TX_IDLE =>
                     if tx_start = '1' then
-                        tx_reg <= tx_d & "0";
+                        tx_reg <= "1" & tx_d & "0";
                         tx_state <= TX_SYNC;
                         tx_cnt <= (others => '0');
                         tx_bit <= (others => '0');
@@ -81,10 +81,10 @@ begin
                     if clk16 = '1' then
                         if tx_cnt = 15 then
                             tx_cnt <= (others => '0');
-                            if tx_bit = 8 then
+                            if tx_bit = 9 then
                                 tx_state <= TX_IDLE;
                             else
-                                tx_reg <= "0" & tx_reg(8 downto 1);
+                                tx_reg <= "0" & tx_reg(9 downto 1);
                                 tx_bit <= tx_bit + 1;
                             end if;
                         else
@@ -96,9 +96,9 @@ begin
     end if;
 end process transmitter;
 
-tx <= tx_reg(0) when tx_state <= TX_WRITE else
+tx <= tx_reg(0) when tx_state = TX_WRITE else
       '1';
-tx_busy <= '0' when tx_state <= TX_IDLE else
+tx_busy <= '0' when tx_state = TX_IDLE else
            '1';
 
 
@@ -123,6 +123,7 @@ begin
                         else
                             if rx_cnt = 7 then
                                 rx_cnt <= (others => '0');
+                                rx_bit <= (others => '0');
                                 rx_state <= RX_READ;
                             else
                                 rx_cnt <= rx_cnt + 1;
@@ -135,10 +136,11 @@ begin
                             rx_cnt <= (others => '0');
                             if rx_bit = 7 then
                                 rx_cnt <= (others => '0');
+                                rx_reg <= rx & rx_reg(7 downto 1);
                                 rx_state <= RX_CHECK;
                             else
                                 rx_bit <= rx_bit + 1;
-                                rx_reg <= rx_reg(6 downto 0) & rx;
+                                rx_reg <= rx & rx_reg(7 downto 1);
                             end if;
                         else
                             rx_cnt <= rx_cnt + 1;
