@@ -28,6 +28,7 @@ end cpu;
 
 architecture Structural of cpu is
     signal PC : unsigned(t_data2'range);
+    signal PC_1 : unsigned(t_data2'range);
     type t_cmd is (CMD_NOOP, CMD_ADD, CMD_ADDC, CMD_SUB, CMD_SUBB, CMD_AND, CMD_OR,
         CMD_XOR, CMD_SHL, CMD_SHR, CMD_SAR, CMD_MOV, CMD_MOVM, CMD_CMP, CMD_JMP);
     type t_cmp is (CMP_NONE, CMP_Z, CMP_NZ, CMP_LE, CMP_LT, CMP_GE, CMP_GT, CMP_ULE, CMP_ULT,
@@ -78,7 +79,7 @@ architecture Structural of cpu is
     signal do_jmp : std_logic;
     type t_fetch is (FETCH_CMD, FETCH_A, FETCH_B, FETCH_BOTH, FETCH_ARG);
     signal fetch_state : t_fetch;
-    signal C_result : std_logic_vector(15 downto 0);
+    signal C_result : std_logic_vector(t_data2'range);
     signal di1 : std_logic_vector(7 downto 0);
     signal di0 : std_logic_vector(7 downto 0);
     signal pdata_rd : std_logic;
@@ -100,19 +101,33 @@ architecture Structural of cpu is
     signal mpmem_addrb : std_logic_vector(9 downto 0);
     signal mpmem_enb : std_logic;
     signal mpmem_dob : t_data;
+    signal rst_1 : std_logic;
+    signal bbusy_1 : std_logic;
 begin
+
+process(clk)
+begin
+    if rising_edge(clk) then
+        rst_1 <= rst;
+        bbusy_1 <= bbusy;
+    end if;
+end process;
 
 mem_fetch: process(clk)
 begin
     if rising_edge(clk) then
         if rst = '1' then
             PC <= (others => '0');
+            PC_1 <= (others => '0');
         elsif bbusy = '0' then
             if do_jmp = '1' then
                 PC <= B_d + 1;
             elsif fetch_state /= FETCH_CMD or doa(15 downto 4) /= "000000001100" or mp_busy = '0' then
                 PC <= PC + 1;
+                PC_1 <= PC;
             end if;
+        elsif bbusy = '1' then
+            PC <= PC_1;
         end if;
     end if;
 end process mem_fetch;
@@ -169,7 +184,7 @@ decode_fetch: process(clk)
     variable hold_cmd : t_ctrl;
 begin
     if rising_edge(clk) then
-        if rst = '1' or do_jmp = '1' or pdata_rd = '1' then
+        if rst = '1' or rst_1 = '1' or do_jmp = '1' or pdata_rd = '1' or (bbusy = '0' and bbusy_1 = '1') then
             decoded_cmd <= ctrl_noop;
             hold_cmd := ctrl_noop;
             fetch_state <= FETCH_CMD;
@@ -354,6 +369,7 @@ begin
                     reg_C <= decoded_cmd.A;
                     wb_C <= "11";
                 when CMD_MOVM => 
+                    reg_C <= decoded_cmd.A;
                     if decoded_cmd.mov(1) = '1' then
                         wb_C <= decoded_cmd.h & decoded_cmd.l;
                         if decoded_cmd.mov(0) = '0' then
