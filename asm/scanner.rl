@@ -72,7 +72,7 @@ func (state *ScannerState) Lex(lval *ParserSymType) int {
             lval.Num, _ = strconv.ParseInt(string(state.data[sa:state.p]), 16, 0)
         }
         action parseAscii {
-            lval.Num = int64(state.data[sa])
+            lval.Num = int64(state.data[state.p - 1])
         }
         action parseFloat {
             lval.Fnum, _ = strconv.ParseFloat(string(state.data[sa:state.p]), 64)
