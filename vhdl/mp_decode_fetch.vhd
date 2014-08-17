@@ -84,12 +84,16 @@ begin
                             fetch_state <= fetch_cmd;
                             cmd_index <= unsigned(pdata(2 downto 0));
                         else
-                            fetch_state <= fetcha;
                             cmd <= slv2vliw(cmd_store(to_integer(store_addr)));
                             to_fetch(0) <= cmd_store(to_integer(store_addr))(1 downto 0);
                             to_fetch(1) <= cmd_store(to_integer(store_addr))(3 downto 2);
                             memchunk(0) <= cmd_store(to_integer(store_addr))(11 downto 10);
                             memchunk(1) <= cmd_store(to_integer(store_addr))(13 downto 12);
+                            if cmd_store(to_integer(store_addr))(1 downto 0) = ARG_NONE then
+                                fetch_state <= store_arg;
+                            else
+                                fetch_state <= fetcha;
+                            end if;
                         end if;
                     end if;
                 when fetch_cmd =>
@@ -106,7 +110,7 @@ begin
                     memchunk <= cmd.arg_memchunk(3 downto 2);
                     if cmd.arg_type(2) = ARG_NONE then
                         to_fetch <= (others => ARG_NONE);
-                        fetch_state <= idle;
+                        fetch_state <= store_arg;
                     else
                         to_fetch <= cmd.arg_type(3 downto 2);
                         fetch_state <= fetchb;

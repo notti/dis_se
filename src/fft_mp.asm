@@ -66,10 +66,16 @@ OUTER:
 
 INNER:
     ADD $4, $5, $0
+    NOP
     bfr $5L, $4L, $7L, $8L
-    bfi
     ADD $5, $5, $2
     CMP $5, N
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+    bfi
     JULT INNER
 
     ADD $3, $3, 1
@@ -81,8 +87,8 @@ INNER:
     CMP $0, N
     JULT FFT_STEP
 
-UNLOAD:
     MOV $0, 0
+UNLOAD:
     MOV $1, R[$0]
     MOV $2, I[$0]
     MOVL SERIAL[0], $1

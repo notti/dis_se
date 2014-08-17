@@ -149,7 +149,7 @@ package body procedures is
     begin
         case to_integer(unsigned(index)) is
             when 0 to 5 => res := val(to_integer(unsigned(index)));
-            when 7 => res := (0 => '1', others => '0');
+            when 6 => res := (0 => '1', others => '0');
             when others => res := (others => '0');
         end case;
         return res;

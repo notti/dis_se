@@ -111,8 +111,8 @@ type ComplexOp struct {
 
 func (f *Term) ToComplex() ComplexOp {
     var ret ComplexOp
-    ret.A = f.A
-    ret.B = f.B
+    ret.A = f.A & 0x7
+    ret.B = f.B & 0x7
     ret.C = f.C
     ret.Point = f.Fix
     ret.Op = f.Op
@@ -135,8 +135,8 @@ type SimpleOp struct {
 
 func (f *Term) ToSimple() SimpleOp {
     var ret SimpleOp
-    ret.A = f.A
-    ret.B = f.B
+    ret.A = f.A & 0x7
+    ret.B = f.B & 0x7
     ret.C = f.C
     ret.Op = f.Op
     if f.Op == ALU_RSHIFT {
@@ -711,6 +711,8 @@ func (f *MPFunction) Emit(id string) ([13]uint16, []Argument, error) {
     code[10] = uint16((wb_bitrev[4] & 0x3) << 14 | wb_bitrev[3] << 11 | wb_bitrev[2] << 8 | wb_bitrev[1] << 5 | wb_bitrev[0] << 2 | wb_memchunk[5])
     code[11] = uint16(wb_assign[2] << 12 | wb_assign[1] << 8 | wb_assign[0] << 4 | wb_bitrev[5] << 1 | wb_bitrev[4] >> 2)
     code[12] = uint16(wb_assign[5] << 8 | wb_assign[4] << 4 | wb_assign[3])
+
+    fmt.Fprintln(os.Stderr, code)
 
     return code, f.Args, nil
 }

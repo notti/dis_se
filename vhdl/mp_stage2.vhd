@@ -77,7 +77,7 @@ port map(
     c => c2
 );
 
-bypass <= '1' when cmd_in.noop = '0' and cmd_in.s2_op1 = CALU_NOOP and cmd_in.s2_op2 = CALU_NOOP and cmd_1.noop = '1' else
+bypass <= '1' when cmd_in.noop = '0' and cmd_in.s2_op1 = SALU_NOOP and cmd_in.s2_op2 = SALU_NOOP and cmd_1.noop = '1' else
           '0';
 
 vmux: for i in 5 downto 0 generate
