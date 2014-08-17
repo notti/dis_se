@@ -895,7 +895,7 @@ op3         : OP3 register ',' asmarg ',' asmarg
                     case ARG_REGISTER:
                         $1 |= $4.reg << 4
                     case ARG_IMMEDIATE:
-                        if $4.num == 0 {
+                        if (($1 & 0x8000) == 0x8000 && $4.num == 1) || (($1 & 0x8000) == 0x0000 && $4.num == 0) {
                             $1 |= 0xE << 4
                         } else {
                             $1 |= 0xF << 4
@@ -909,7 +909,7 @@ op3         : OP3 register ',' asmarg ',' asmarg
                     case ARG_REGISTER:
                         $1 |= $6.reg
                     case ARG_IMMEDIATE:
-                        if $6.num == 0 {
+                        if (($1 & 0x8000) == 0x8000 && $6.num == 1) || (($1 & 0x8000) == 0x0000 && $6.num == 0) {
                             $1 |= 0xE
                         } else {
                             $1 |= 0xF

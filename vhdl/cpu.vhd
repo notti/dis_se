@@ -309,10 +309,12 @@ port map
 );
 
 A_d <= unsigned(decoded_cmd.A_d) when decoded_cmd.A = "1111" else
+       (0 => '1', others => '0') when decoded_cmd.A = "1110" and (decoded_cmd.cmd = CMD_SHL or decoded_cmd.cmd = CMD_SHR or decoded_cmd.cmd = CMD_SAR) else
        (others => '0') when decoded_cmd.A = "1110" else
        unsigned(reg_C_d) when decoded_cmd.A = reg_C else
        unsigned(reg_A_d);
 B_d <= unsigned(decoded_cmd.B_d) when decoded_cmd.B = "1111" else
+       (0 => '1', others => '0') when decoded_cmd.B = "1110" and (decoded_cmd.cmd = CMD_SHL or decoded_cmd.cmd = CMD_SHR or decoded_cmd.cmd = CMD_SAR) else
        (others => '0') when decoded_cmd.B = "1110" else
        unsigned(reg_C_d) when decoded_cmd.A = reg_C else
        unsigned(reg_B_d);
