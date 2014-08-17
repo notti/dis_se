@@ -57,7 +57,7 @@ begin
         write(X"00", rx);
         write(X"55", rx);
         write(X"01", rx);
-        wait for 300 us;
+        wait for 100 us;
 
         assert false report "stop" severity failure;
     end process;

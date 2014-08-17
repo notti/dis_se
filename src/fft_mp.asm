@@ -28,10 +28,10 @@ define bfi 2(unsigned last i, unsigned last j, signed fix7 last wr, signed fix7 
 ; sync
 
 BEGIN_SYNC:
-    MOV $0, SERIAL[0]
+    MOVL $0, SERIAL[0]
     CMP $0, 0x55
     JNE BEGIN_SYNC
-    MOV $0, SERIAL[0]
+    MOVL $0, SERIAL[0]
     CMP $0, 0xAA
     JNE BEGIN_SYNC
 
