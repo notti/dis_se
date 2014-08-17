@@ -164,30 +164,26 @@ end process register_file_di;
 register_file: process(clk)
 begin
     if rising_edge(clk) then
-        if rst = '1' then
-            reg <= (others => (others => '0'));
-        else
-            if wb_C(1) = '1' or wb_C(0) = '1' then
-                reg(to_integer(unsigned(reg_C))) <= di1 & di0;
-            end if;
-            if (wb_C(1) = '1' or wb_C(0) = '1') and ((reg_C = doa(7 downto 4) and fetch_state = FETCH_CMD) or (reg_C = A_hold and fetch_state /= FETCH_CMD)) then
-                reg_A_d <= di1 & di0;
-            elsif fetch_state = FETCH_CMD then
-                reg_A_d <= reg(to_integer(unsigned(doa(7 downto 4))));
-            end if;
-            if (wb_C(1) = '1' or wb_C(0) = '1') and ((reg_C = doa(3 downto 0) and fetch_state = FETCH_CMD) or (reg_C = B_hold and fetch_state /= FETCH_CMD)) then
-                reg_B_d <= di1 & di0;
-            elsif fetch_state = FETCH_CMD then
-                reg_B_d <= reg(to_integer(unsigned(doa(3 downto 0))));
-            end if;
-            if reg_ena = '1' then
-                reg_doaw <= reg(to_integer(unsigned(reg_addra(3 downto 0))));
-                reg_hla <= reg_addra(4);
-            end if;
-            if reg_enb = '1' then
-                reg_dobw <= reg(to_integer(unsigned(reg_addrb(3 downto 0))));
-                reg_hlb <= reg_addrb(4);
-            end if;
+        if wb_C(1) = '1' or wb_C(0) = '1' then
+            reg(to_integer(unsigned(reg_C))) <= di1 & di0;
+        end if;
+        if (wb_C(1) = '1' or wb_C(0) = '1') and ((reg_C = doa(7 downto 4) and fetch_state = FETCH_CMD) or (reg_C = A_hold and fetch_state /= FETCH_CMD)) then
+            reg_A_d <= di1 & di0;
+        elsif fetch_state = FETCH_CMD then
+            reg_A_d <= reg(to_integer(unsigned(doa(7 downto 4))));
+        end if;
+        if (wb_C(1) = '1' or wb_C(0) = '1') and ((reg_C = doa(3 downto 0) and fetch_state = FETCH_CMD) or (reg_C = B_hold and fetch_state /= FETCH_CMD)) then
+            reg_B_d <= di1 & di0;
+        elsif fetch_state = FETCH_CMD then
+            reg_B_d <= reg(to_integer(unsigned(doa(3 downto 0))));
+        end if;
+        if reg_ena = '1' then
+            reg_doaw <= reg(to_integer(unsigned(reg_addra(3 downto 0))));
+            reg_hla <= reg_addra(4);
+        end if;
+        if reg_enb = '1' then
+            reg_dobw <= reg(to_integer(unsigned(reg_addrb(3 downto 0))));
+            reg_hlb <= reg_addrb(4);
         end if;
     end if;
 end process register_file;
@@ -378,7 +374,7 @@ begin
                     if B_d(15 downto 4) /= "000000000000" then
                         C_d := (others => '0');
                     else
-                        C_d := "0" & signed(shift_right(A_d, to_integer(unsigned(std_logic_vector(B_d(3 downto 0))))));
+                        C_d := "0" & signed(shift_right(unsigned(std_logic_vector(A_d)), to_integer(unsigned(std_logic_vector(B_d(3 downto 0))))));
                     end if;
                     wb_C <= "11";
                 when CMD_SAR  =>

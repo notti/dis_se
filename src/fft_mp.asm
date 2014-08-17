@@ -27,6 +27,7 @@ define bfi 2(unsigned last i, unsigned last j, signed fix7 last wr, signed fix7 
  
 ; sync
 
+    MOV $0, 0
 BEGIN_SYNC:
     MOVL $0, SERIAL[0]
     CMP $0, 0x55
@@ -40,6 +41,8 @@ BEGIN_SYNC:
 
 LOAD:
     MOV $2, 0
+    MOV $0, 0
+    MOV $1, 0
 READ:
     MOVL $0, SERIAL[0]
     MOVH $0, SERIAL[0]     ; $0 = IR
