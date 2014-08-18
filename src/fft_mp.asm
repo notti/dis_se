@@ -62,18 +62,18 @@ FFT_STEP:
 OUTER:
     SHL $4, $3, $1      ; j
     ADD $5, $4, N/4
-    MOVL $8, SINE[$4]        ; wi
-    MOVL $7, SINE[$5]        ; wr
+    MOV $8, SINE[$4]        ; wi
+    MOV $7, SINE[$5]        ; wr
     SUB $8, 0, $8
     MOV $5, $3          ; i
 
-INNER:
     ADD $4, $5, $0
     NOP
+INNER:
     bfr $5L, $4L, $7L, $8L
     ADD $5, $5, $2
+    ADD $4, $5, $0
     CMP $5, N
-    NOP
     NOP
     NOP
     NOP
