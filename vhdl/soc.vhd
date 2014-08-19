@@ -13,6 +13,8 @@ entity soc is
         clk     : in  std_logic;
         clk2x   : in  std_logic;
 
+        pc      : out std_logic_vector(7 downto 0);
+
         rx      : in  std_logic;
         tx      : out std_logic
     );
@@ -38,6 +40,8 @@ architecture Structural of soc is
     signal dib : t_data2;
     signal bbusy : std_logic;
 begin
+
+pc <= addra(7 downto 0);
 
 mem_enb <= enb when addrb(15 downto 12) = "0000" else
            '0';
