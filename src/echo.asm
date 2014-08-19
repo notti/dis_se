@@ -1,4 +1,4 @@
 START:
-    MOV $0, SERIAL[0]
-    MOV SERIAL[0], $0
+    MOVL $0, SERIAL[0]
+    MOVL SERIAL[0], $0
     JMP START
