@@ -78,3 +78,4 @@ tb_soc.o: procedures.o soc.o
 soc.o: procedures.o progmem.o serial.o cpu.o
 cpu.o: procedures.o mp.o
 tb_cpu.o: procedures.o cpu.o
+progmem.o: procedures.o
