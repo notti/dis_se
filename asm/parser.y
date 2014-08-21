@@ -117,7 +117,10 @@ program     : statements
                 fmt.Print("@0000")
                 for _, cp := range code {
                     c := cp.(uint16)
-                    fmt.Printf(" %04X", c)
+                    fmt.Printf(" %1X", c&0xF)
+                    fmt.Printf("%1X", (c>>4)&0xF)
+                    fmt.Printf("%1X", (c>>8)&0xF)
+                    fmt.Printf("%1X", (c>>12)&0xF)
                 }
                 fmt.Println()
             }
