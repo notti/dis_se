@@ -30,14 +30,14 @@ architecture Structural of top is
     signal cnt : unsigned(19 downto 0);
 begin
 
-    process(clk)
+    process(clk_i)
     begin
         if rising_edge(clk_i) then
             pc <= pc_i;
         end if;
     end process;
 
-    deb: process(clk)
+    deb: process(clk_i)
     begin
         if rising_edge(clk_i) then
             rst_1 <= rst;

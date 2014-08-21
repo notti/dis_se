@@ -28,7 +28,6 @@ end cpu;
 
 architecture Structural of cpu is
     signal PC : unsigned(t_data2'range);
-    signal PC_1 : unsigned(t_data2'range);
     type t_cmd is (CMD_NOOP, CMD_ADD, CMD_ADDC, CMD_SUB, CMD_SUBB, CMD_AND, CMD_OR,
         CMD_XOR, CMD_SHL, CMD_SHR, CMD_SAR, CMD_MOV, CMD_MOVM, CMD_CMP, CMD_JMP);
     type t_cmp is (CMP_NONE, CMP_Z, CMP_NZ, CMP_LE, CMP_LT, CMP_GE, CMP_GT, CMP_ULE, CMP_ULT,
@@ -62,7 +61,8 @@ architecture Structural of cpu is
     signal decoded_cmd : t_ctrl;
     attribute INIT : t_ctrl;
     attribute INIT of decoded_cmd : signal is ctrl_noop;
-    signal reg : t_data2_array(15 downto 0);
+    signal regH : t_data_array(15 downto 0);
+    signal regL : t_data_array(15 downto 0);
     signal reg_A_d : t_data2;
     signal reg_B_d : t_data2;
     signal reg_C_d : t_data2;
@@ -80,21 +80,19 @@ architecture Structural of cpu is
     type t_fetch is (FETCH_CMD, FETCH_A, FETCH_B, FETCH_BOTH, FETCH_ARG);
     signal fetch_state : t_fetch;
     signal C_result : std_logic_vector(t_data2'range);
-    signal di1 : std_logic_vector(7 downto 0);
-    signal di0 : std_logic_vector(7 downto 0);
+    attribute KEEP : string;
     signal pdata_rd : std_logic;
+    attribute KEEP of pdata_rd : signal is "true";
     signal mp_busy : std_logic;
+    attribute KEEP of mp_busy : signal is "true";
     signal mp_start : std_logic;
-    signal reg_doaw : t_data2;
-    signal reg_dobw : t_data2;
+    attribute KEEP of mp_start : signal is "true";
     signal reg_doa  : t_data;
     signal reg_dob  : t_data;
     signal reg_ena  : std_logic;
     signal reg_enb  : std_logic;
     signal reg_addra : t_data;
     signal reg_addrb : t_data;
-    signal reg_hla  : std_logic;
-    signal reg_hlb  : std_logic;
     signal mpmem_addra : std_logic_vector(9 downto 0);
     signal mpmem_ena : std_logic;
     signal mpmem_doa : t_data;
@@ -102,22 +100,19 @@ architecture Structural of cpu is
     signal mpmem_enb : std_logic;
     signal mpmem_dob : t_data;
     signal rst_1 : std_logic;
-    signal bbusy_1 : std_logic;
-    signal mpbusy : std_logic;
-    signal mpbusy_1 : std_logic;
     signal A_hold : std_logic_vector(3 downto 0);
     signal B_hold : std_logic_vector(3 downto 0);
+
+    signal suspend : std_logic;
 begin
 
-mpbusy <= '1' when fetch_state = FETCH_CMD and doa(15 downto 4) = "000000001100" and mp_busy = '1' else
-          '0';
+suspend <= '1' when (fetch_state = FETCH_CMD and doa(15 downto 4) = "000000001100" and mp_busy = '1') or bbusy = '1' else
+           '0';
 
 process(clk)
 begin
     if rising_edge(clk) then
         rst_1 <= rst;
-        bbusy_1 <= bbusy;
-        mpbusy_1 <= mpbusy;
     end if;
 end process;
 
@@ -126,85 +121,91 @@ begin
     if rising_edge(clk) then
         if rst = '1' then
             PC <= (others => '0');
-            PC_1 <= (others => '0');
-        elsif bbusy = '1' or mpbusy = '1' then
-            PC <= PC_1;
-        else
+        elsif suspend = '0' then
             if do_jmp = '1' then
                 PC <= unsigned(std_logic_vector(B_d)) + 1;
             else
                 PC <= PC + 1;
-                PC_1 <= PC;
             end if;
         end if;
     end if;
 end process mem_fetch;
 
-ena <= '1';
+ena <= not suspend;
 
 addra <= std_logic_vector(PC) when do_jmp = '0' else
          std_logic_vector(B_d);
 
 
--- "simple" xilinx style ram with byte wide write enable...
-register_file_di: process(wb_C, reg_C_d)
-begin
-    if wb_C(1) = '1' then
-        di1 <= reg_C_d(15 downto 8);
-    else
-        di1 <= reg(to_integer(unsigned(reg_C)))(15 downto 8);
-    end if;
-    if wb_C(0) = '1' then
-        di0 <= reg_C_d(7 downto 0);
-    else
-        di0 <= reg(to_integer(unsigned(reg_C)))(7 downto 0);
-    end if;
-end process register_file_di;
-
+-- since ise 10 gets scared to death by the byte wide write enabled ram copied
+-- from the xst guide...:
 register_file: process(clk)
 begin
     if rising_edge(clk) then
-        if wb_C(1) = '1' or wb_C(0) = '1' then
-            reg(to_integer(unsigned(reg_C))) <= di1 & di0;
+        if wb_C(1) = '1' then
+            regH(to_integer(unsigned(reg_C))) <= reg_C_d(15 downto 8);
+        end if;
+        if wb_C(0) = '1' then
+            regL(to_integer(unsigned(reg_C))) <= reg_C_d(7 downto 0);
         end if;
         if (wb_C(1) = '1' or wb_C(0) = '1') and ((reg_C = doa(7 downto 4) and fetch_state = FETCH_CMD) or (reg_C = A_hold and fetch_state /= FETCH_CMD)) then
-            reg_A_d <= di1 & di0;
+            if wb_C(1) = '1' then
+                reg_A_d(15 downto 8) <= reg_C_d(15 downto 8);
+            else
+                reg_A_d(15 downto 8) <= regH(to_integer(unsigned(reg_C)));
+            end if;
+            if wb_C(0) = '1' then
+                reg_A_d(7 downto 0) <= reg_C_d(7 downto 0);
+            else
+                reg_A_d(7 downto 0) <= regL(to_integer(unsigned(reg_C)));
+            end if;
         elsif fetch_state = FETCH_CMD then
-            reg_A_d <= reg(to_integer(unsigned(doa(7 downto 4))));
+            reg_A_d(15 downto 8) <= regH(to_integer(unsigned(doa(7 downto 4))));
+            reg_A_d(7 downto 0) <= regL(to_integer(unsigned(doa(7 downto 4))));
         end if;
         if (wb_C(1) = '1' or wb_C(0) = '1') and ((reg_C = doa(3 downto 0) and fetch_state = FETCH_CMD) or (reg_C = B_hold and fetch_state /= FETCH_CMD)) then
-            reg_B_d <= di1 & di0;
+            if wb_C(1) = '1' then
+                reg_B_d(15 downto 8) <= reg_C_d(15 downto 8);
+            else
+                reg_B_d(15 downto 8) <= regH(to_integer(unsigned(reg_C)));
+            end if;
+            if wb_C(0) = '1' then
+                reg_B_d(7 downto 0) <= reg_C_d(7 downto 0);
+            else
+                reg_B_d(7 downto 0) <= regL(to_integer(unsigned(reg_C)));
+            end if;
         elsif fetch_state = FETCH_CMD then
-            reg_B_d <= reg(to_integer(unsigned(doa(3 downto 0))));
+            reg_B_d(15 downto 8) <= regH(to_integer(unsigned(doa(3 downto 0))));
+            reg_B_d(7 downto 0) <= regL(to_integer(unsigned(doa(3 downto 0))));
         end if;
         if reg_ena = '1' then
-            reg_doaw <= reg(to_integer(unsigned(reg_addra(3 downto 0))));
-            reg_hla <= reg_addra(4);
+            if reg_addra(4) = '1' then
+                reg_doa <= regH(to_integer(unsigned(reg_addra(3 downto 0))));
+            else
+                reg_doa <= regL(to_integer(unsigned(reg_addra(3 downto 0))));
+            end if;
         end if;
         if reg_enb = '1' then
-            reg_dobw <= reg(to_integer(unsigned(reg_addrb(3 downto 0))));
-            reg_hlb <= reg_addrb(4);
+            if reg_addrb(4) = '1' then
+                reg_dob <= regH(to_integer(unsigned(reg_addrb(3 downto 0))));
+            else
+                reg_dob <= regL(to_integer(unsigned(reg_addrb(3 downto 0))));
+            end if;
         end if;
     end if;
 end process register_file;
-
-reg_doa <= reg_doaw(15 downto 8) when reg_hla = '1' else
-           reg_doaw(7 downto 0);
-reg_dob <= reg_dobw(15 downto 8) when reg_hlb = '1' else
-           reg_dobw(7 downto 0);
-
 
 decode_fetch: process(clk)
     variable hold_cmd : t_ctrl;
 begin
     if rising_edge(clk) then
-        if rst = '1' or rst_1 = '1' or do_jmp = '1' or pdata_rd = '1' or (bbusy = '0' and bbusy_1 = '1') or mpbusy = '1' or mpbusy_1 = '1' then
+        if rst = '1' or rst_1 = '1' or do_jmp = '1' or pdata_rd = '1' then
             decoded_cmd <= ctrl_noop;
             hold_cmd := ctrl_noop;
             fetch_state <= FETCH_CMD;
             A_hold <= (others => '0');
             B_hold <= (others => '0');
-        elsif bbusy = '0' then
+        elsif suspend = '0' then
             case fetch_state is
                 when FETCH_CMD =>
                     hold_cmd := ctrl_noop;
@@ -290,7 +291,8 @@ begin
     end if;
 end process decode_fetch;
 
-mp_start <= '1' when fetch_state = FETCH_CMD and doa(15 downto 4) = "000000001100" and mp_busy = '0' and do_jmp = '0' else
+mp_start <= '0' when rst = '1' or rst_1 = '1' or do_jmp = '1' or pdata_rd = '1' or suspend = '1' else
+            '1' when fetch_state = FETCH_CMD and doa(15 downto 4) = "000000001100" else
             '0';
 
 mpmem_addra <= decoded_cmd.arg(1 downto 0) & std_logic_vector(B_d(7 downto 1)) & "0";
@@ -341,89 +343,91 @@ execute: process(clk)
     variable C_d : signed(16 downto 0);
 begin
     if rising_edge(clk) then
-        wb_which <= WB_REG;
-        wb_C <= "00";
-        reg_C <= decoded_cmd.C;
-        C_d := (others => '0');
-        if do_jmp = '0' then
-            case decoded_cmd.cmd is
-                when CMD_ADD | CMD_ADDC | CMD_SUB | CMD_CMP | CMD_SUBB =>
-                    if decoded_cmd.cmd /= CMD_CMP then
-                        wb_C <= "11";
-                    end if;
-                    if decoded_cmd.cmd = CMD_ADD then
-                        C_d := to_signed(to_integer(A_d) + to_integer(B_d), 17);
-                    elsif decoded_cmd.cmd = CMD_ADDC then
-                        C_d := to_signed(to_integer(A_d) + to_integer(B_d) + to_integer(unsigned'("" & C_flag)), 17);
-                    elsif decoded_cmd.cmd = CMD_SUB or decoded_cmd.cmd = CMD_CMP then
-                        C_d := to_signed(to_integer(A_d) - to_integer(B_d), 17);
-                    else
-                        C_d := to_signed(to_integer(A_d) - to_integer(B_d) - to_integer(unsigned'("" & C_flag)), 17);
-                    end if;
-                when CMD_AND  => C_d := "0" & signed(A_d and B_d);       wb_C <= "11";
-                when CMD_OR   => C_d := "0" & signed(A_d or B_d);        wb_C <= "11";
-                when CMD_XOR  => C_d := "0" & signed(A_d xor B_d);       wb_C <= "11";
-                when CMD_SHL  => 
-                    if B_d(15 downto 4) /= "000000000000" then
-                        C_d := (others => '0');
-                    else
-                        C_d := "0" & signed(shift_left(A_d, to_integer(unsigned(std_logic_vector(B_d(3 downto 0))))));
-                    end if;
-                    wb_C <= "11";
-                when CMD_SHR  =>
-                    if B_d(15 downto 4) /= "000000000000" then
-                        C_d := (others => '0');
-                    else
-                        C_d := "0" & signed(shift_right(unsigned(std_logic_vector(A_d)), to_integer(unsigned(std_logic_vector(B_d(3 downto 0))))));
-                    end if;
-                    wb_C <= "11";
-                when CMD_SAR  =>
-                    if B_d(15 downto 4) /= "000000000000" then
-                        C_d := (others => '0');
-                    else
-                        C_d := "0" & signed(std_logic_vector(shift_right(A_d, to_integer(unsigned(std_logic_vector(B_d(3 downto 0)))))));
-                    end if;
-                    wb_C <= "11";
-                when CMD_MOV  =>
-                    C_d := "0" & B_d;
-                    reg_C <= decoded_cmd.A;
-                    wb_C <= "11";
-                when CMD_MOVM => 
-                    reg_C <= decoded_cmd.A;
-                    if decoded_cmd.mov(1) = '1' then
-                        wb_C <= decoded_cmd.h & decoded_cmd.l;
-                        if decoded_cmd.mov(0) = '0' then
-                            wb_which <= WB_MEM;
-                        else
-                            wb_which <= WB_MPMEM;
+        if suspend = '0' then
+            wb_which <= WB_REG;
+            wb_C <= "00";
+            reg_C <= decoded_cmd.C;
+            C_d := (others => '0');
+            if do_jmp = '0' then
+                case decoded_cmd.cmd is
+                    when CMD_ADD | CMD_ADDC | CMD_SUB | CMD_CMP | CMD_SUBB =>
+                        if decoded_cmd.cmd /= CMD_CMP then
+                            wb_C <= "11";
                         end if;
-                    end if;
-                when others =>
-            end case;
-            case decoded_cmd.cmd is
-                when CMD_ADD | CMD_ADDC | CMD_SUB | CMD_SUBB | CMD_CMP =>
-                    S_flag <= C_d(15);
-                    C_flag <= C_d(16);
-                    if C_d(15 downto 0) = "0000000000000000" then
-                        Z_flag <= '1';
-                    else
-                        Z_flag <= '0';
-                    end if;
-                    V_flag <= C_d(15) xor C_d(16) xor A_d(15) xor B_d(15);
-                when CMD_AND | CMD_OR | CMD_XOR | CMD_SHL | CMD_SHR | CMD_SAR =>
-                    if C_d(15 downto 0) = "0000000000000000" then
-                        Z_flag <= '1';
-                    else
-                        Z_flag <= '0';
-                    end if;
-                when others =>
-            end case;
+                        if decoded_cmd.cmd = CMD_ADD then
+                            C_d := to_signed(to_integer(A_d) + to_integer(B_d), 17);
+                        elsif decoded_cmd.cmd = CMD_ADDC then
+                            C_d := to_signed(to_integer(A_d) + to_integer(B_d) + to_integer(unsigned'("" & C_flag)), 17);
+                        elsif decoded_cmd.cmd = CMD_SUB or decoded_cmd.cmd = CMD_CMP then
+                            C_d := to_signed(to_integer(A_d) - to_integer(B_d), 17);
+                        else
+                            C_d := to_signed(to_integer(A_d) - to_integer(B_d) - to_integer(unsigned'("" & C_flag)), 17);
+                        end if;
+                    when CMD_AND  => C_d := "0" & signed(A_d and B_d);       wb_C <= "11";
+                    when CMD_OR   => C_d := "0" & signed(A_d or B_d);        wb_C <= "11";
+                    when CMD_XOR  => C_d := "0" & signed(A_d xor B_d);       wb_C <= "11";
+                    when CMD_SHL  => 
+                        if B_d(15 downto 4) /= "000000000000" then
+                            C_d := (others => '0');
+                        else
+                            C_d := "0" & signed(shift_left(A_d, to_integer(unsigned(std_logic_vector(B_d(3 downto 0))))));
+                        end if;
+                        wb_C <= "11";
+                    when CMD_SHR  =>
+                        if B_d(15 downto 4) /= "000000000000" then
+                            C_d := (others => '0');
+                        else
+                            C_d := "0" & signed(shift_right(unsigned(std_logic_vector(A_d)), to_integer(unsigned(std_logic_vector(B_d(3 downto 0))))));
+                        end if;
+                        wb_C <= "11";
+                    when CMD_SAR  =>
+                        if B_d(15 downto 4) /= "000000000000" then
+                            C_d := (others => '0');
+                        else
+                            C_d := "0" & signed(std_logic_vector(shift_right(A_d, to_integer(unsigned(std_logic_vector(B_d(3 downto 0)))))));
+                        end if;
+                        wb_C <= "11";
+                    when CMD_MOV  =>
+                        C_d := "0" & B_d;
+                        reg_C <= decoded_cmd.A;
+                        wb_C <= "11";
+                    when CMD_MOVM => 
+                        reg_C <= decoded_cmd.A;
+                        if decoded_cmd.mov(1) = '1' then
+                            wb_C <= decoded_cmd.h & decoded_cmd.l;
+                            if decoded_cmd.mov(0) = '0' then
+                                wb_which <= WB_MEM;
+                            else
+                                wb_which <= WB_MPMEM;
+                            end if;
+                        end if;
+                    when others =>
+                end case;
+                case decoded_cmd.cmd is
+                    when CMD_ADD | CMD_ADDC | CMD_SUB | CMD_SUBB | CMD_CMP =>
+                        S_flag <= C_d(15);
+                        C_flag <= C_d(16);
+                        if C_d(15 downto 0) = "0000000000000000" then
+                            Z_flag <= '1';
+                        else
+                            Z_flag <= '0';
+                        end if;
+                        V_flag <= C_d(15) xor C_d(16) xor A_d(15) xor B_d(15);
+                    when CMD_AND | CMD_OR | CMD_XOR | CMD_SHL | CMD_SHR | CMD_SAR =>
+                        if C_d(15 downto 0) = "0000000000000000" then
+                            Z_flag <= '1';
+                        else
+                            Z_flag <= '0';
+                        end if;
+                    when others =>
+                end case;
+            end if;
+            C_result <= std_logic_vector(C_d(15 downto 0));
         end if;
-        C_result <= std_logic_vector(C_d(15 downto 0));
     end if;
 end process execute;
 
-do_jmp <= '0' when decoded_cmd.cmd /= CMD_JMP else
+do_jmp <= '0' when decoded_cmd.cmd /= CMD_JMP or suspend = '1' else
           '1' when decoded_cmd.cmp = CMP_NONE or
                    (decoded_cmd.cmp = CMP_Z and Z_flag = '1') or
                    (decoded_cmd.cmp = CMP_NZ and Z_flag = '0') or
