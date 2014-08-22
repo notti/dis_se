@@ -28,6 +28,10 @@ define bfi 2(unsigned last i, unsigned last j, signed fix7 last wr, signed fix7 
 ; sync
 
     MOV $0, 0
+    MOV $9, N
+    MOV $10, N/4
+    MOV $11, 7
+    MOV $12, 2
 BEGIN_SYNC:
     MOVL $0, SERIAL[0]
     CMP $0, 0x55
@@ -49,19 +53,19 @@ READ:
     MOVL $1, SERIAL[0]
     MOVH $1, SERIAL[0]     ; $1 = IR
     load $0L, $0H, $2L, $1L, $1H
-    ADD $2, $2, 2
-    CMP $2, N
+    ADD $2, $2, $12
+    CMP $2, $9
     JULT READ
 
     MOV $0, 1           ; l
-    MOV $1, 7           ; k
+    MOV $1, $11           ; k
 FFT_STEP:
     SHL $2, $0, 1       ; step
     MOV $3, 0           ; m
 
 OUTER:
     SHL $4, $3, $1      ; j
-    ADD $5, $4, N/4
+    ADD $5, $4, $10
     MOV $8, SINE[$4]        ; wi
     MOV $7, SINE[$5]        ; wr
     SUB $8, 0, $8
@@ -73,11 +77,7 @@ INNER:
     bfr $5L, $4L, $7L, $8L
     ADD $5, $5, $2
     ADD $4, $5, $0
-    CMP $5, N
-    NOP
-    NOP
-    NOP
-    NOP
+    CMP $5, $9
     bfi
     JULT INNER
 
@@ -87,7 +87,7 @@ INNER:
 
     SUB $1, $1, 1
     MOV $0, $2
-    CMP $0, N
+    CMP $0, $9
     JULT FFT_STEP
 
     MOV $0, 0
@@ -99,7 +99,7 @@ UNLOAD:
     MOVH SERIAL[0], $1
     MOVH SERIAL[0], $2
     ADD $0, $0, 2
-    CMP $0, N
+    CMP $0, $9
     JULT UNLOAD
     JMP LOAD
 

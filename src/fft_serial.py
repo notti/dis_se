@@ -43,13 +43,13 @@ def fft_fix(R, I, n, inverse):
             for i in range(m, n, step):
                 j = i + l
                 tr = FIX_MUL(wr, R[j]) - FIX_MUL(wi, I[j])
+                ti = FIX_MUL(wr, I[j]) + FIX_MUL(wi, R[j])
                 qr = R[i]
+                qi = I[i]
                 qr >>= 1 #shift
+                qi >>= 1 #shift
                 R[j] = qr - tr
                 R[i] = qr + tr
-                ti = FIX_MUL(wr, I[j]) + FIX_MUL(wi, R[j])
-                qi = I[i]
-                qi >>= 1 #shift
                 I[j] = qi - ti
                 I[i] = qi + ti
         k -= 1
@@ -84,11 +84,11 @@ class MP:
 fig = plt.figure()
 ax1 = fig.add_subplot(411, xlim=(0, 256), ylim=(-128, 128))
 line1, = ax1.plot([], [], lw=1)
-ax2 = fig.add_subplot(412, xlim=(0, 256), ylim=(0, 30))
-line2, = ax2.plot([], [], lw=1)
-ax3 = fig.add_subplot(413, xlim=(0, 256), ylim=(0, 30))
+ax2 = fig.add_subplot(412, xlim=(0, 256), ylim=(0, 60))
+line2, = ax2.plot([], [], 'r-', lw=1)
+ax3 = fig.add_subplot(413, xlim=(0, 256), ylim=(0, 60))
 line3, = ax3.plot([], [], lw=1)
-ax4 = fig.add_subplot(414, xlim=(0, 256), ylim=(0, 30))
+ax4 = fig.add_subplot(414, xlim=(0, 256), ylim=(0, 60))
 line4, = ax4.plot([], [], lw=1)
 
 mp = MP()
@@ -101,10 +101,10 @@ def init():
 
 def animate(i):
     x = np.arange(256)
-    y1 = np.sin(2 * np.pi * x/i)*127
+    y1 = np.sin(2 * np.pi * 10 * x/i)*127
     mp.load(y1)
     y2 = mp.unload()
-    y3 = np.absolute(np.fft.fft(y1))/512
+    y3 = np.absolute(np.fft.fft(y1))/256
     R = list(y1.astype(int))
     I = [0]*256
     fft_fix(R, I, 256, False)
@@ -117,7 +117,7 @@ def animate(i):
     line4.set_data(x, y3)
     return line1, line2, line3, line4, 
 
-frames = range(32, 200) 
+frames = np.logspace(1.5, 3, num=100)
 
 anim = animation.FuncAnimation(fig, animate, init_func=init,
                                frames=frames, interval=100, blit=True)
