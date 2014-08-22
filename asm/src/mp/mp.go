@@ -372,8 +372,8 @@ func (p *pipeline) String() string {
     return ret
 }
 
-func (f *MPFunction) Emit(id string) ([13]uint16, []Argument, error) {
-    var code [13]uint16
+func (f *MPFunction) Emit(id string) ([14]uint16, []Argument, error) {
+    var code [14]uint16
     if len(f.Terms) > 6 {
         return code, f.Args, errors.New("too many Terms")
     }
@@ -389,7 +389,7 @@ func (f *MPFunction) Emit(id string) ([13]uint16, []Argument, error) {
         make([]Term, 0 ,2), newpstage(),
         make([]Term, 0, 2), newpstage()}
     var arg_type, arg_memchunk, arg_val, arg_assign, mem_fetch, mem_memchunk [6]int
-    var wb, wb_memchunk, wb_bitrev, wb_assign [6]int
+    var wb, wb_memchunk, wb_bitrev, wb_assign, wb_val [6]int
 
 ///// decode_fetch
     for _, a := range f.Args {
@@ -414,31 +414,11 @@ func (f *MPFunction) Emit(id string) ([13]uint16, []Argument, error) {
             }
         }
     }
-    //Stuff we need to write out in the end (also needs to come first -> HW!)
-    checked := false
+    //Stuff we need to write out in the end
     for _, x := range f.Out {
         if arg, ok := f.Variables[x.Id].(Argument); ok {
             if p.var1.setFixed(arg.Id, MEM_FIXED) {
                 continue
-            }
-            if checked == false {
-                if p.var1.num() > 0 {
-                    //check if variables already stored get written
-                    for used, _ := range p.var1.used {
-                        found := false
-                        for _, out := range f.Out {
-                            if out.Id == used {
-                                found = true
-                                p.var1.setFixed(out.Id, MEM_FIXED)
-                                break
-                            }
-                        }
-                        if found == false {
-                            return code, f.Args, errors.New("Read/Write combination not possible")
-                        }
-                    }
-                }
-                checked = true
             }
             if i, ok := p.var1.addFixed(arg.Id, MEM_FIXED); ok == false {
                 return code, f.Args, errors.New("too many memory reads")
@@ -448,7 +428,7 @@ func (f *MPFunction) Emit(id string) ([13]uint16, []Argument, error) {
             }
         }
     }
-    //Finally input Values
+    //Input Values
     for _, x := range f.Terms {
         if x.A >=0 {
             if arg, ok := f.Variables[x.A].(Argument); ok {
@@ -646,6 +626,11 @@ func (f *MPFunction) Emit(id string) ([13]uint16, []Argument, error) {
         wb[i] = 1
         wb_memchunk[i] = out.Base
         wb_bitrev[i] = out.Rev
+        if id, ok := p.var4.place(out.Id); ok {
+            wb_val[i] = id
+        } else {
+            return code, f.Args, errors.New("impossible writeback")
+        }
         if id, ok := p.var0.place(out.Addr); ok {
             wb_assign[i] = id
         } else if id, ok := p.var4.place(out.Addr); ok {
@@ -696,6 +681,7 @@ func (f *MPFunction) Emit(id string) ([13]uint16, []Argument, error) {
     fmt.Fprintln(os.Stderr, wb_memchunk)
     fmt.Fprintln(os.Stderr, wb_bitrev)
     fmt.Fprintln(os.Stderr, wb_assign)
+    fmt.Fprintln(os.Stderr, wb_val)
     fmt.Fprintln(os.Stderr, "-------------------")
 
     code[0] = uint16(arg_memchunk[1] << 14 | arg_memchunk[0] << 12 | arg_type[5] << 10 | arg_type[4] << 8 | arg_type[3] << 6 | arg_type[2] << 4 | arg_type[1] << 2 | arg_type[0])
@@ -710,7 +696,8 @@ func (f *MPFunction) Emit(id string) ([13]uint16, []Argument, error) {
     code[9] = uint16(wb_memchunk[4] << 14 | wb_memchunk[3] << 12 | wb_memchunk[2] << 10 | wb_memchunk[1] << 8 | wb_memchunk[0] << 6 | wb[5] << 5 | wb[4] << 4 | wb[3] << 3 | wb[2] << 2 | wb[1] << 1 | wb[0])
     code[10] = uint16((wb_bitrev[4] & 0x3) << 14 | wb_bitrev[3] << 11 | wb_bitrev[2] << 8 | wb_bitrev[1] << 5 | wb_bitrev[0] << 2 | wb_memchunk[5])
     code[11] = uint16(wb_assign[2] << 12 | wb_assign[1] << 8 | wb_assign[0] << 4 | wb_bitrev[5] << 1 | wb_bitrev[4] >> 2)
-    code[12] = uint16(wb_assign[5] << 8 | wb_assign[4] << 4 | wb_assign[3])
+    code[12] = uint16((wb_val[1] & 0x1) << 15 | wb_val[0] << 12 | wb_assign[5] << 8 | wb_assign[4] << 4 | wb_assign[3])
+    code[13] = uint16(wb_val[5] << 11 | wb_val[4] << 8 | wb_val[3] << 5 | wb_val[2] << 2 | wb_val[1] >> 1)
 
     fmt.Fprintln(os.Stderr, code)
 

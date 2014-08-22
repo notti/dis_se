@@ -88,6 +88,7 @@ package procedures is
             wb_memchunk  : t_2array(5 downto 0);
             wb_bitrev    : t_3array(5 downto 0);
             wb_assign    : t_4array(5 downto 0);
+            wb_val       : t_3array(5 downto 0);
 
             -- ctrl
             noop         : std_logic;
@@ -129,9 +130,10 @@ package procedures is
         wb_assign => (others => (others => '0')),
         wb_bitrev => (others => (others => '0')),
         wb_memchunk => (others => (others => '0')),
+        wb_val => (others => (others => '0')),
         noop => '1'
     );
-    constant VLIW_HIGH : natural := 203;
+    constant VLIW_HIGH : natural := 221;
 
     function index2val(signal val: in t_data_array(5 downto 0);
                        signal index: in std_logic_vector(2 downto 0)) return t_data;
@@ -229,6 +231,12 @@ package body procedures is
         ret.wb_assign(3)    := slv(195 downto 192);
         ret.wb_assign(4)    := slv(199 downto 196);
         ret.wb_assign(5)    := slv(203 downto 200);
+        ret.wb_val(0)       := slv(206 downto 204);
+        ret.wb_val(1)       := slv(209 downto 207);
+        ret.wb_val(2)       := slv(212 downto 210);
+        ret.wb_val(3)       := slv(215 downto 213);
+        ret.wb_val(4)       := slv(218 downto 216);
+        ret.wb_val(5)       := slv(221 downto 219);
         ret.noop            := '0';
         return ret;
     end function;
@@ -307,6 +315,12 @@ package body procedures is
         ret(195 downto 192) := vliw.wb_assign(3);
         ret(199 downto 196) := vliw.wb_assign(4);
         ret(203 downto 200) := vliw.wb_assign(5);
+        ret(206 downto 204) := vliw.wb_val(0);
+        ret(209 downto 207) := vliw.wb_val(1);
+        ret(212 downto 210) := vliw.wb_val(2);
+        ret(215 downto 213) := vliw.wb_val(3);
+        ret(218 downto 216) := vliw.wb_val(4);
+        ret(221 downto 219) := vliw.wb_val(5);
         return ret;
     end function;
 

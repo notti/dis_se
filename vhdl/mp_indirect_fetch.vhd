@@ -47,7 +47,7 @@ architecture Structural of mp_indirect_fetch is
     signal memchunk : t_2array(1 downto 0);
 begin
 
-arg_mux: for i in 4 downto 0 generate
+arg_mux: for i in 5 downto 0 generate
    arg(i) <= index2val(arg_in, cmd_in.arg_assign(i));
 end generate arg_mux;
 

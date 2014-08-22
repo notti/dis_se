@@ -33,6 +33,7 @@ architecture Structural of mp_writeback is
     signal cmd : t_vliw;
     signal cmd_r : t_vliw;
     signal val : t_data_array(5 downto 0);
+    signal val_r : t_data_array(5 downto 0);
     signal w_val : t_data_array(1 downto 0);
     signal arg : t_data_array(5 downto 0);
     signal arg_r : t_data_array(5 downto 0);
@@ -46,6 +47,10 @@ arg_mux: for i in 5 downto 0 generate
               bitrev(index2val(val_in, cmd_in.wb_assign(i)(2 downto 0)), cmd_in.wb_bitrev(i));
 end generate arg_mux;
 
+val_mux: for i in 5 downto 0 generate
+    val(i) <= index2val(val_in, cmd_in.wb_val(i));
+end generate val_mux;
+
 state: process(clk)
 begin
     if rising_edge(clk) then
@@ -58,9 +63,9 @@ begin
                 when idle =>
                     cmd <= cmd_in;
                     arg_r <= arg;
-                    val <= val_in;
+                    val_r <= val;
                     addr <= arg(1 downto 0);
-                    w_val <= val_in(1 downto 0);
+                    w_val <= val(1 downto 0);
                     if cmd_in.wb(0) = '1' then
                         wb <= cmd_in.wb(1 downto 0);
                         write_state <= writea;
@@ -69,7 +74,7 @@ begin
                 when writea =>
                     addr <= arg_r(3 downto 2);
                     memchunk <= cmd.wb_memchunk(3 downto 2);
-                    w_val <= val(3 downto 2);
+                    w_val <= val_r(3 downto 2);
                     if cmd.wb(2) = '1' then
                         wb <= cmd.wb(3 downto 2);
                         write_state <= writeb;
@@ -80,7 +85,7 @@ begin
                 when writeb =>
                     addr <= arg_r(5 downto 4);
                     memchunk <= cmd.wb_memchunk(5 downto 4);
-                    w_val <= val(5 downto 4);
+                    w_val <= val_r(5 downto 4);
                     if cmd.wb(2) = '1' then
                         wb <= cmd.wb(5 downto 4);
                         write_state <= writec;
