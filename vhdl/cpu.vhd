@@ -80,13 +80,9 @@ architecture Structural of cpu is
     type t_fetch is (FETCH_CMD, FETCH_A, FETCH_B, FETCH_BOTH, FETCH_ARG);
     signal fetch_state : t_fetch;
     signal C_result : std_logic_vector(t_data2'range);
-    attribute KEEP : string;
     signal pdata_rd : std_logic;
-    attribute KEEP of pdata_rd : signal is "true";
     signal mp_busy : std_logic;
-    attribute KEEP of mp_busy : signal is "true";
     signal mp_start : std_logic;
-    attribute KEEP of mp_start : signal is "true";
     signal reg_doa  : t_data;
     signal reg_dob  : t_data;
     signal reg_ena  : std_logic;
