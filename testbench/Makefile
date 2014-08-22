@@ -14,7 +14,7 @@ WORK = --work=work
 %.o: %.vhd
 	$(GHDL) -a $(GHDLFLAGS) $(LIBS) $(WORK) $<
 
-tb_cpu.ghw tb_soc.ghw tb_serial.ghw tb_p4mem1k8t.ghw tb_mp.ghw tb_mp_writeback.ghw tb_mp_stage3.ghw tb_mp_stage2.ghw tb_mp_stage1.ghw tb_complex_alu.ghw tb_simple_alu.ghw tb_shift.ghw tb_mp_decode_fetch.ghw tb_mp_indirect_fetch.ghw: %.ghw: %
+tb_filter.ghw tb_cpu.ghw tb_soc.ghw tb_serial.ghw tb_p4mem1k8t.ghw tb_mp.ghw tb_mp_writeback.ghw tb_mp_stage3.ghw tb_mp_stage2.ghw tb_mp_stage1.ghw tb_complex_alu.ghw tb_simple_alu.ghw tb_shift.ghw tb_mp_decode_fetch.ghw tb_mp_indirect_fetch.ghw: %.ghw: %
 	./$< --wave=$@ --ieee-asserts=disable-at-0
 
 export 
@@ -78,4 +78,5 @@ tb_soc.o: procedures.o soc.o
 soc.o: procedures.o progmem.o serial.o cpu.o
 cpu.o: procedures.o mp.o
 tb_cpu.o: procedures.o cpu.o
+tb_filter.o: procedures.o cpu.o
 progmem.o: procedures.o
