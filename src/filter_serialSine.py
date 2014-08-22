@@ -38,7 +38,6 @@ def init():
     return line1, line2, line3,
 
 def animate(i):
-    print(i)
     global y3, x1
     if i == frames[0]:
         y3 = np.array([])
@@ -54,7 +53,6 @@ def animate(i):
         y2.append(mp.unload())
     y2 = np.array(y2) 
     A = 20*math.log10(np.amax(y2)/np.amax(y1))
-    print(20/i, A)
     y3 = np.append(y3, A)
     x1 = np.append(x1, 20/i)
     line1.set_data(x, y1)

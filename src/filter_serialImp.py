@@ -18,10 +18,10 @@ class MP:
         return self.packer.unpack(self.ser.read(1))[0]
 
 fig = plt.figure()
-ax1 = fig.add_subplot(211, xlim=(0, 64), ylim=(-100, 100))
-line1, = ax1.plot([], [], lw=1)
-ax2 = fig.add_subplot(212, xlim=(0, 64), ylim=(-100, 100))
-line2, = ax2.plot([], [], lw=1)
+ax1 = fig.add_subplot(211, xlim=(0, 30), ylim=(-100, 100))
+line1, = ax1.plot([], [], 'o')
+ax2 = fig.add_subplot(212, xlim=(0, 30), ylim=(-100, 100))
+line2, = ax2.plot([], [], 'o')
 
 mp = MP()
 
@@ -44,7 +44,7 @@ def animate(i):
         y2 = np.array([], dtype=int)
     x = np.arange(i)
     val = 0
-    if i//32%2:
+    if i > 5:
         val = 79
     mp.load(val)
     y1 = np.append(y1, val)
@@ -53,8 +53,8 @@ def animate(i):
     line2.set_data(x, y2)
     return line1, line2, 
 
-frames = range(1, 64)
+frames = range(1, 30)
 
 anim = animation.FuncAnimation(fig, animate, init_func=init,
-                               frames=frames, interval=50, blit=True, repeat=False)
+                               frames=frames, interval=100, blit=True, repeat=False)
 plt.show()
