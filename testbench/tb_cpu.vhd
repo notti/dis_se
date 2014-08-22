@@ -599,7 +599,7 @@ begin
                     read(buf_in, o, good);
                     exit when not good;
                     assert o = ' ' report "memfile error: " & o severity failure;
-                    for j in 3 downto 0 loop
+                    for j in 0 to 3 loop
                         read(buf_in, o, good);
                         assert good report "memfile error" severity failure;
                         hex2slv(o, val((j+1)*4-1 downto j*4), good);
