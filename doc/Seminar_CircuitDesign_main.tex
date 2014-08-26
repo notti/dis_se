@@ -1,0 +1,661 @@
+\documentclass[11pt,twocolumn,technote,a4paper]{IEEEtran}
+
+\usepackage{ifpdf}
+\usepackage{cite}
+\usepackage[dvips]{graphicx}
+\graphicspath{{img/}}
+
+\usepackage[cmex10]{amsmath}
+\usepackage{amssymb}
+\usepackage{listings}
+%\usepackage{algorithmic}
+
+% *** ALIGNMENT PACKAGES ***
+%
+%\usepackage{array}
+%\usepackage{mdwmath}
+%\usepackage{mdwtab}
+%\usepackage{eqparbox}
+\usepackage{tocloft}
+
+\usepackage{pstricks}
+\usepackage{pst-node}
+\usepackage{pst-blur}
+
+% *** FLOAT PACKAGES ***
+%
+%\usepackage{fixltx2e}
+%\usepackage{stfloats}
+\usepackage{url}
+
+\usepackage{makeidx}
+\usepackage[colorlinks,hyperindex,plainpages=false,
+pdftitle={Title},
+pdfauthor={Gernot Vormayr},
+pdfsubject={Seminar Paper},
+pdfkeywords={},
+pdfpagelabels,
+pagebackref,
+bookmarksopen=false
+]{hyperref}
+
+\usepackage{cleveref}
+
+
+\markboth{ICT-Vienna University of Technology,~Aug 2014}{Author: Title}
+
+
+%% Space between paragraphs
+\setlength\cftparskip{-2pt}
+%Space between sections
+\setlength{\cftbeforesecskip}{0.05ex}
+
+% Number spaces
+\renewcommand{\cftsecindent}{0 em}
+\renewcommand{\cftsecnumwidth}{2.1 em}
+
+\renewcommand{\cftsubsecindent}{0.5 em}
+\renewcommand{\cftsubsecnumwidth}{2.2 em}
+
+
+\hyphenation{}
+
+\begin{document}
+
+\title{\huge{Programmable Processor Pipeline for Replacing Specialized Modules in Many-Modules SoC}}
+
+\author{\IEEEauthorblockN{Gernot Vormayr - 0425210\\}
+\IEEEauthorblockA{Institute of Computer Technology\\
+Vienna University of Technology\\
+\url{gvormayr@gmail.com}
+}}
+
+\maketitle
+
+\begin{abstract}
+With the growing need for more functionality, the possibility given due to
+process technology and to lower power usage, Many-Modules SoC gain popularity.
+However these modules are highly specialised and have therefore high design
+costs, can not be updated to accommodate future needs and use up valuable
+die space.
+
+In this paper a co-processor with a programmable ALU pipeline which can map
+to complex mathematical operations is proposed. With this co-processor it
+should be possible to replace many modules with a single block. This paper
+explores the steps needed for an implementation, the feasibility and the
+viability of such an approach.
+
+\end{abstract}
+
+\IEEEpeerreviewmaketitle
+
+\renewcommand{\contentsname}{\small{Table of Contents}}
+%\tableofcontents
+
+
+\section{Introduction}
+\label{sec:introduction}
+Current SoC for mobile platforms add several dedicated cores for multimedia
+processing, camera processing and DSPs\cite{anand_qualcomm}; video encode,
+video decode and image enhancement\cite{kanter_medfield}; processing
+enhancement, audio codecs and video engine\cite{anand_allwinner}. This added
+Modules add up to as high as 25\% of die space\cite{anand_qualcomm}. Because
+of the ever increasing functionality needs and advances in technology this
+trend will continue in the future and more of these dedicated blocks will be
+added to the SoCs.\\
+These blocks have the disadvantage of being only usable for their specific
+purpose and are not able to accommodate future needs. There is also the
+problem of growing interconnect needs and increased resource consumption
+caused by the NoC mapping\cite{walter_era_2009}. Most video codecs
+need a license for implementation which could be shifted to the software side
+if the algorithm is not implemented in hardware, making it possible to produce
+a cheaper version. In addition to these problems the fixed nature of these
+video codecs create an artificial entry barrier for new codecs like HEVC or
+WebM. In addition to these problems having the implementation fully in
+hardware makes bug fixing virtually impossible. Furthermore every SoC has to
+be designed with the intended capabilities in mind. It is not possible to
+change the functionality or dynamically adjust the assigned processing power
+of the current tasks.\\
+In the past graphics processing units used dedicated processing cores for
+geometry, vertex and pixel shading. Some of the already mentioned problems
+were overcome with the invention of the Unified Shading Architecture
+\cite{wiki_unified_2014}. This approach already has been taken one step
+further with the introduction of the Heterogeneous System Architecture
+\cite{amd_hsa} further generalizing the graphics processing unit.\\
+This paper presents an approach to create a more generalized processing unit
+for these tasks. To accommodate the wide differing processing needs, a
+flexible pipeline has been created, that can implement more complicated 
+DSP-like commands. Every pipeline stage has shadow registers that can
+be used for intermediate storage and the different stages have been
+adapted to the given problems. Every stage can be controlled in a VLIW
+like fashion, but instead of commanding a wide array of execution
+units, the pipeline depth and functions at different stages are directed. To
+overcome the need of very long instructions, short instructions can be
+dynamically mapped to these long ones. Since most of the problems need more
+local storage than registers can provide, a small local memory is attached
+to the pipeline. The overall architecture can be seen in
+\Cref{fig:overall_architecture}.\\
+In order to keep the hardware resources low the work flow in
+\Cref{fig:workflow}, which is clarified in more detail in
+\Cref{sec:pipeline_from_scratch}, has been devised for determining the needed
+functions, the depth and the needed registers.
+\begin{figure}[h]
+    \centering
+    \begin{psmatrix}[rowsep=.5,colsep=.3]
+        \psframebox{Pseudocode a} & \psframebox{Pseudocode b} & \psframebox[linestyle=dotted]{\gray \ldots} \\
+        \psframebox{\shortstack{Determine Common\\Operations}} & \psframebox{\shortstack{Determine Common\\Operations}} & \psframebox[linestyle=dotted]{\gray \ldots} \\
+        \psframebox{\shortstack{Map to\\Simple Functions}} & \psframebox{\shortstack{Map to\\Simple Functions}} & \psframebox[linestyle=dotted]{\gray \ldots} \\
+        & \psframebox{\shortstack{Find Common\\Denominator}} & \\
+        & \psframebox{\shortstack{Design Hardware,\\Compiler}} & \\
+        \psframebox{Implement a} & \psframebox{Implement b} & \psframebox[linestyle=dotted]{\gray \ldots}
+
+        \psset{arrows=->,fillstyle=none,armB=.25}
+        \ncline{1,1}{2,1}
+        \ncline{1,2}{2,2}
+        \ncline{2,1}{3,1}
+        \ncline{2,2}{3,2}
+
+        \ncangle[angleA=-90,angleB=90]{3,1}{4,2}
+        \ncline{3,2}{4,2}
+
+        \ncline{4,2}{5,2}
+        
+        \ncangle[angleA=90,angleB=-90]{<-}{6,1}{5,2}
+        \ncline{5,2}{6,2}
+
+        \psset{linestyle=dotted}
+        \ncline{1,3}{2,3}
+        \ncline{2,3}{3,3}
+        \ncangle[angleA=-90,angleB=90]{3,3}{4,2}
+
+        \ncangle[angleA=90,angleB=-90]{<-}{6,3}{5,2}
+    \end{psmatrix}
+    \caption{Design Workflow.}
+    \label{fig:workflow}
+\end{figure}
+
+\begin{figure*}[tb]
+    \centering
+    \begin{psmatrix}[colsep=.4,rowsep=.1]
+        & & & & \psframebox{\shortstack{Local\\Memory}}\\
+        \pnode{A} & \psframebox{\shortstack{Decode, Register/\\Memory fetch}} & \psframebox{\shortstack{Indirect\\Fetch}} & \psframebox{ALU 1} & \psframebox{ALU 2} & \psframebox[linestyle=dotted]{\gray ALU \ldots} & \psframebox{ALU N} & \psframebox{Writeback}
+        
+        \psset{arrows=->,fillstyle=none}
+        \ncangle[angleA=90,angleB=180]{<-}{2,2}{1,5}
+        \ncangle[angleA=90,angleB=180]{<-}{2,3}{1,5}
+        \ncline{2,1}{2,2}
+        \ncline{2,2}{2,3}
+        \ncline{2,3}{2,4}
+        \ncline{2,4}{2,5}
+        \ncline[linestyle=dotted]{2,5}{2,6}
+        \ncline[linestyle=dotted]{2,6}{2,7}
+        \ncline{2,7}{2,8}
+
+        \ncangle[angleA=90]{2,8}{1,5}
+    \end{psmatrix}
+    \caption{Overall Architecture.}
+    \label{fig:overall_architecture}
+\end{figure*}
+
+
+\section{Related Work}
+As has already been mentioned in \Cref{sec:introduction} the advent of the
+Unified Shading Architecture \cite{wiki_unified_2014} can be seen as a similar
+topic. There are also numerous works on adding custom hardware units to
+existing processors. As technology advances it will be possible to add
+FPGAs to mobile processors which would make it possible to repurpose the
+logic to the application\cite{martina_fpga_2002}.\\
+A processor with wide and deep custom pipelines and tools is proposed by
+\cite{severance_soft_2014}. This design concentrates on vector
+instructions, raw throughput and the toolchain for inferring the processor.\\
+Another approach for easier design with coarse grained functional units
+by inferring a VLIW processor can be seen in \cite{mei_design_2004}.\\
+All these approaches however use very wide instructions, rely on future
+advances in technology or are optimised for only one task.
+
+
+\section{Creating the Pipeline from Scratch}
+\label{sec:pipeline_from_scratch}
+Two common algorithms are implemented: FFT and FIR Filter.
+\subsection{Identifying needed Operations}
+\label{sec:identify}
+\subsubsection{FFT}
+To simplify the design and prevent the need for a stack in the processor
+the following non recursive, in place algorithm for complex data \verb+D+ has been
+used:
+\begin{lstlisting}[mathescape]
+bit reverse index in D
+l = 1
+k = 7
+while l < 256
+    st = l * 2
+    for m = 0 to l
+        j = m << k
+        w = $e^{-\mathbf{i} \cdot \pi \cdot \mathrm{j}}$
+        for i = m to n step st
+            j = i + l
+            t = D[j] * w
+            q = D[i]
+            D[i] = q + t
+            D[j] = q - t
+    k = k - 1
+    l = st
+\end{lstlisting}
+To simplify the hardware, fixed point calculations are used. Since every loop
+iteration would add additional bits to the result the \verb+q+ and \verb+w+
+variables need to be divided by two (shifted right by one bit).
+For implementing this algorithm on the processor the complex calculation is
+split into the real and imaginary parts. Furthermore to prevent the need for
+trigonometric functions a lookup table is used. With these optimizations the
+calculation in the most inner loop can be split into nearly two identical parts
+which only differ by a single calculation (see \Cref{fig:datapath_fft}).
+\begin{figure}[h]
+    \centering
+    \begin{psmatrix}[rowsep=0,colsep=.45]
+        $\mathrm{Re}(w) / \mathrm{Im}(w)$ & \\
+                                          & \psframebox{$\times$} &                      & \psframebox{$-$} & $\mathrm{Re}(D[j / i])$\\
+        $\mathrm{Re}(D[j])$ & \\
+                                          &                       & \psframebox{$- / +$} \\
+        $\mathrm{Im}(w) / \mathrm{Re}(w)$ & \\
+                                          & \psframebox{$\times$} &                      & \psframebox{$+$} & $\mathrm{Im}(D[j / i])$\\
+        $\mathrm{Im}(D[j])$ & \\
+        $\mathrm{Re}(D[i]) / \mathrm{Im}(D[i])$ &                 & \psframebox{$>> 1$}
+        \psset{arrows=->,fillstyle=none,angleB=180}
+        \ncangle{1,1}{2,2}
+        \ncangle{3,1}{2,2}
+
+        \ncangle{5,1}{6,2}
+        \ncangle{7,1}{6,2}
+
+        \ncline{8,1}{8,3}
+
+        \ncangle{2,2}{4,3}
+        \ncangle{6,2}{4,3}
+
+        \ncangle{4,3}{2,4}
+        \ncangle{4,3}{6,4}
+
+        \ncangle{8,3}{2,4}
+        \ncangle{8,3}{6,4}
+
+        \ncline{2,4}{2,5}
+        \ncline{6,4}{6,5}
+    \end{psmatrix}
+    \caption{Common FFT Datapath. $/$ separates the two operations.}
+    \label{fig:datapath_fft}
+\end{figure}
+This can be implemented with three pipeline stages where each needs to be able
+to do two calculations parallel. Needed operations are signed fixed point
+multiplication, addition, subtraction and arithmetic right shift. The bit
+reverse part can be implemented with bit reverse addressing during load.
+\subsubsection{FIR Filter}
+These calculations will also be done with fixed point precision. There is no
+need for data shifts, because values in FIR filters can never exceed $2.0$.
+The algorithm
+\[
+    y[n] = \sum^N_{i=0}b_i\cdot x[n-i]
+\]
+can easily be implemented with the data path shown in \Cref{fig:datapath_fir}.
+\begin{figure}[h]
+    \centering
+    \begin{psmatrix}[rowsep=0,colsep=.45]
+        $x[n]$                &                       &                  & $x[n-1]$\\
+                              & \psframebox{$\times$} \\
+        $b_0$ \\
+                              &                       & \psframebox{$+$} & $y[n]$\\
+        $x[n-1]$ \\
+                              & \psframebox{$\times$}\\
+        $b_1$ & \\
+        \psset{arrows=->,fillstyle=none,angleB=180}
+        \ncline{1,1}{1,4}
+        \ncangle{1,1}{2,2}
+        \ncangle{3,1}{2,2}
+
+        \ncangle{5,1}{6,2}
+        \ncangle{7,1}{6,2}
+
+        \ncangle{2,2}{4,3}
+        \ncangle{6,2}{4,3}
+
+        \ncline{4,3}{4,4}
+    \end{psmatrix}
+    \caption{Common FIR Datapath.}
+    \label{fig:datapath_fir}
+\end{figure}
+For higher order filters $y[n]$ is the result of two orders and the sub results
+have to be summed up to the final result. If the pipeline doesn't stall or
+reorder the commands, then the read before write behaviour can be exploited to
+prevent the need for a ring buffer. Each two-sum-stage could shift the values
+one address up.
+\subsection{Creating a Pipeline}
+\begin{figure*}[tb]
+    \centering
+    \begin{psmatrix}[colsep=.9,rowsep=.2]
+        Mem  & & & & \psframebox{\shortstack{Local\\Memory}}\\
+        Reg  & \psframebox{\shortstack{Register/\\Memory fetch}} & \psframebox{\shortstack{Indirect\\Fetch}} & \psframebox{\shortstack{Complex 1\\Complex 2}} & \psframebox{\shortstack{Simple 1\\Simple 2}} & \psframebox{\shortstack{Simple 1\\Simple2}} & \psframebox{Writeback}\\
+        Ctrl & \psframebox{Decode}
+        \psset{arrows=->,fillstyle=none}                                                                                                          
+        \ncangle[angleA=90,angleB=180]{<-}{2,2}{1,5}
+        \ncangle[angleA=90,angleB=180]{<-}{2,3}{1,5}
+        \ncline{1,5}{1,1}
+
+        \ncline{2,1}{2,2}
+        \ncline{2,2}{2,3}
+        \naput*{SR}
+        \ncline{2,3}{2,4}
+        \naput*{SR}
+        \nbput*{SR}
+        \ncline{2,4}{2,5}
+        \naput*{SR}
+        \nbput*{SR}
+        \ncline{2,5}{2,6}
+        \naput*{SR}
+        \nbput*{SR}
+        \ncline{2,6}{2,7}
+        \naput*{SR}
+        \nbput*{SR}
+
+        \ncline{3,1}{3,2}
+        \ncline{3,2}{2,2}
+
+        \ncangle[angleA=90]{2,7}{1,5}
+    \end{psmatrix}
+    \caption{Pipeline implementation. SR above arrow: address shadow register; SR below arrow data shadow register.}
+    \label{fig:pipeline}
+\end{figure*}
+Both algorithms from \Cref{sec:identify} can be fully mapped to a pipeline with
+these stages:
+\begin{enumerate}
+\item Decode and argument fetch
+\item Indirect memory read
+\item Complex ALU (Fixed Mul), two wide
+\item Simple ALU (Add/Shift/Sub), two wide
+\item Simple ALU (Add/Shift/Sub), two wide
+\item Write back (with possible bit reverse addressing)
+\end{enumerate}
+A maximum of six shadow variables is needed, which can be reduced to five, if
+a constant of value one is implemented. For write back as many addresses as
+values need to be stored into additional shadow registers. This results in the
+overall design as can be seen in \Cref{fig:pipeline}. For communication the
+pipeline can read the registers of the supporting processor and the supporting
+processor the local memory of the pipeline.\\
+The final implementation of the pipeline features 8 bit wide shadow registers.
+To fully utilize the multiplexers and all needed bits the register number was
+adjusted to six and the two additional constants of zero and one. To leave
+the possibility open to implement additional algorithms the complex ALU
+implements both signed and unsigned multiplication with various fixed point
+sizes with convergent rounding, addition, subtraction, and, or and xor. Since
+the multiplication with the additional bit shifter and adder for rounding need
+very deep logic nesting. This ALU needs two clock cycles for completion and is
+itself pipelined. The simple ALU implements the same features, but instead of
+the signed and unsigned multiplication, an arithmetic and logic right shift is
+implemented. Only one clock cycle is sufficient for the simple ALU. The write
+back stage is capable of using bit reversed addressing with varying bit widths
+and can choose between address and value shadow registers as addresses, so it
+is possible to calculate write addresses. Local memory can store up to 256
+8 bit values in four different address ranges. With this arrangement it is
+possible to use one address range for the real part and one for the imaginary
+part and calculate two FFTs at the same time.\\
+In order to speed up the algorithms that don't need every stage, a stage is
+bypassed if the command doesn't need the current stage and bypassing wouldn't
+overwrite another command. Care has to be taken, because this can lead to
+commands overtaking others during execution.\\
+To simplify the hardware, no command is allowed to enter the indirect stage
+if a memory fetch is already in progress. Only the first arguments are able
+to cause an indirect fetch. This means that arguments have to be ordered in
+the right way. The same is true for write back.\\
+These features need a very wide control word of 222 Bits not counting actual
+command arguments. Since the FFT algorithm needs only two different commands
+and the FIR only one (two if long filter chains are created), the decode
+stage can store up to 8 different commands. These commands slots can be changed
+any time and are immediately usable after configuration. The decoding stage
+can fetch up to six arguments and the actual commands are of variable size
+to minimize cycles needed for commands without arguments or low argument counts.
+
+
+\subsection{Supporting Processor}
+A simple 16 bit MIPS like processor with four pipeline stages has been
+implemented to fill the pipeline with operations and data. The processor
+pipeline has the four stages command fetch, decode/register fetch, execute,
+and write back. This internal pipeline runs along the algorithm pipeline
+and both can execute at the same time. This can lead to data races and has to
+be taken care of in the tool chain or software.\\
+The command set is trimmed so the missing operations not implemented by the
+algorithm pipeline can be executed (e.g. loops). Because of the differing bit
+widths the pipeline can load two arguments per cycle and the whole design has
+been optimized so it is possible to also load two registers, two memory values
+or two intermediate values per cycle. To speed up write back it also writes two
+values per cycle back. The local memory is byte addressable from the processor.\\
+For communication to the outside world a simple memory mapped serial
+interface with the fixed settings 115200 bps, 8 data bits, one stop bit, no flow
+control, and no parity bits has been implemented. It features a read and write
+FIFO and the processor is suspended in case of an empty read buffer or full
+write buffer.\\
+The processor has been fully tested and implemented on an Xilinx XC3S700A and
+is able to operate at 50MHz.
+
+
+\subsection{Compiler}
+Considering the high number of control bits, it is nearly impossible to program
+these by hand. Even creating a language that can specify each operation on it's
+own can be tedious to write and hard to get right. Because of these issues a
+small compiler has been created that can map the mathematical formulas directly
+into byte code.\\
+The compiler implementation consists of a lexer created with Ragel
+\cite{thurston_parsing_2006}. The lexer has small static looping capabilities
+for easing creating small sequences of commands or lookup tables. It can also
+handle numeric constants. Tokens created by the lexer get fed to a parser
+implemented with golang yacc. Except for the pipeline instructions the whole
+compiler is a macro assembler with the added capability of statically
+calculating numbers which helps with creating lookup tables.\\
+To speed up implementation of the compiler, the complex pipeline compilation
+does not use an AST, but instead tries to map the different operations in
+the following order directly:
+\begin{enumerate}
+    \item Arguments are assigned to their positions.
+    \item Indirect fetches are assigned.
+    \item Values needed for write back are fixed into the shadow registers after
+        the indirect fetch stage.
+    \item Values needed for operations are fixed into the shadow registers
+    \item If multiplication is needed or there are more than four operations, then
+        stage 1 is filled with operations.
+    \item Fixed values from the last stage get fixed for the next one.
+    \item Values no longer needed get unfixed.
+    \item Operations are assigned to the first simple stage. Operations with
+        intermediate values have higher priority.
+    \item 6, 7 is repeated for this stage.
+    \item 8, 9 is repeated for the second simple stage.
+    \item Addresses are matched to the values for the write back stage.
+\end{enumerate}
+In case of not possible combinations the compilation process is aborted with
+an according error message. Since this process uses a very simple
+implementation the following problems can occur:
+\begin{itemize}
+    \item Double computations, because the compiler can not detect similar
+        Operations.
+    \item Wrong ordering of operations, creating impossible combinations.
+\end{itemize}
+These can be overcome by specifying the algorithm another way or reordering
+the source code. For more complex pipelines a compiler implementation using
+an abstract syntax tree is advised.\\
+The basic syntax of specifying pipeline commands is:
+\begin{lstlisting}
+define <name> <slot>(<args>) {
+    <id> = <eqn>
+}
+\end{lstlisting}
+This generates the commands to program the command slot and in the next line it
+can already be used.
+\begin{description}
+     \item[name] Name which can be used after the declaration for dispatching
+         this command.
+     \item[slot] Slot number this command gets assigned to.
+     \item[args] One to six arguments consisting of argument type
+         (reg, imm, mem, last), value type (fixN, signed, unsigned) and name.
+     \item[id] Memory assignment for write back or variable name for
+         intermediate value.
+     \item[eqn] Equation specifying the operation(s). Can use variables,
+         arguments, memory loads, or the constants zero and one.
+\end{description}
+\begin{description}
+    \item[reg] Register.
+    \item[imm] Immediate value.
+    \item[mem] Memory.
+    \item[last] Value at this position fetched by the last executed command.
+    \item[fixN] Value type is fixed point with decimal point at N. Can be 1 - 7 bit.
+    \item[\textasciicircum{}N] Bit reverse addressing with 8 bit addresses. Address size can be
+        1 - 8.
+\end{description}
+Value types get inferred from the arguments of an operation. If one of the
+arguments has no type, then the result has the type of the other argument. Both
+arguments can only have a type if those match. The default type is unsigned
+integer.\\
+The syntax for programming the supporting processor is standard assembler
+with intel syntax. Since arguments to the pipeline have 8 bit width,
+register names can be postfixed with \verb+L+ or \verb+H+, in order to
+address the low byte oder high byte. Low byte is the default. An example
+can be seen in \Cref{lst:fft}.\\
+The compiler generates mem files with reverse byte ordering which can be read
+by the Xilinx tool chain.
+\begin{figure*}[tb]
+    \centering
+    \begin{lstlisting}[basicstyle=\tiny,morekeywords={define,mem,reg,unsigned,signed,fix7,ADD,CMD,last}]
+define R mem 0b10
+define I mem 0b11
+
+define load 0(reg r1, reg i1, reg addr1, reg r2, reg i2) {
+    addr2 = addr1 + 1
+    R[^8 addr1] = r1
+    I[^8 addr1] = i1
+    R[^8 addr2] = r2
+    I[^8 addr2] = i2
+}
+
+define bfr 1(unsigned reg i, unsigned reg j, signed fix7 reg wr, signed fix7 reg wi) {
+    tr = wr * R[j] - wi * I[j]
+    qr = signed fix7 R[i] >> 1
+    R[j] = qr - tr
+    R[i] = qr + tr
+}
+
+define bfi 2(unsigned last i, unsigned last j, signed fix7 last wr, signed fix7 last wi) {
+    ti = wr * I[j] + wi * R[j]
+    qi = signed fix7 I[i] >> 1
+    I[j] = qi - ti
+    I[i] = qi + ti
+}
+
+...
+
+    bfr $5L, $4L, $7L, $8L
+    ADD $5, $5, $2
+    ADD $4, $5, $0
+    CMP $5, $9
+    bfi
+
+...
+    \end{lstlisting}
+    \caption{Sample program listing demonstration the FFT command declaration and invocation.}
+    \label{lst:fft}
+\end{figure*}
+
+
+\section{Results}
+\label{sec:results}
+After synthesis the implemented solution uses about six times the resources
+than an optimized FFT core \cite{xilinx_fft} or about 43 times the resources
+than an optimized FIR core \cite{xilinx_fir} (see \Cref{Tab:Results}). Those
+high numbers are cause by the high register usage of the pipeline (2078 flip
+flops). These numbers can be substantially lowered by removing ALU functions
+and registers that are not needed by these two algorithms. Another part that
+can help free up resources is to optimize the compiler which in shifts
+problems solved in hardware to the software side.\\
+The speed ups can be seen in \Cref{Tab:Speed}.\\
+These numbers take not into account, that it is possible to do two FFTs
+simultaneously on the proposed pipeline with little additional cycles. With
+the IP core this can only be achived by doubling the clock frequency or
+doubling the hardware.
+
+\begin{table}[h]
+\begin{footnotesize}
+\begin{center}
+\begin{tabular}{|r|r|r|r|r|}
+\hline 
+            & Full & Pipeline & Xilinx FFT \cite{xilinx_fft} & Xilinx FIR \cite{xilinx_fir} \\
+\hline
+\hline
+Slices      & 4738 & 3808          & 605 & 87 \\
+\hline
+BRAM   &    9 &    3          & 3   & 0\\
+\hline
+Multipliers &    4 &    4          & 3   &1\\
+\hline
+\hline 
+\end{tabular}
+\end{center}
+\end{footnotesize}
+\caption{Synthesis results.}
+\label{Tab:Results}
+\end{table}
+
+\begin{table}[h]
+\begin{footnotesize}
+\begin{center}
+\begin{tabular}{|r|r|r|r|r|}
+\hline 
+            & CPU   & Xilinx IP  & Speedup\\
+\hline
+\hline
+256 FFT     & 14127 & 1677 & 8\\
+\hline
+15 tap FIR  &    54 & 16 & 3\\
+\hline
+\hline 
+\end{tabular}
+\end{center}
+\end{footnotesize}
+\caption{Clock cycles for one execution.}
+\label{Tab:Speed}
+\end{table}
+
+
+\section{Conclusions and Future Work}
+As can be seen in \cref{sec:results} right now the proposed solution
+performs not good enough to be able to replace hard IP. This solution
+will never be able to be as fast or small as specialised blocks, but
+with improvements this approach can be a viable alternative. A big contribution
+to these high numbers is that the implementation was too generalized. With
+the following optimizations this approach can actually save up resources:
+\begin{itemize}
+    \item Create a better compiler that is more tailored to algorithmic
+        problems and that can optimize the code.
+    \item Avoid over generalization of the implementation.
+    \item Find a better alternative for the shadow register implementation
+        since flip flops are a scarce resource in FPGAs
+    \item Implement more complex problems, since those presented are too basic
+        and can be highly optimized in hardware.
+\end{itemize}
+Before using this approach more research should happen in the area of compilers
+and a compiler created that can help with determining the common operations
+and the mapping in \Cref{fig:workflow}. This will lead to a mapping that is
+better suited to the problems and less resource wastage.
+
+\bibliographystyle{IEEEtran}
+\begingroup
+\raggedright
+\sloppy
+\bibliography{IEEEabrv,literature}
+\endgroup
+
+\section*{Sources}
+Sources can be found at \url{https://github.com/notti/dis_se}.
+\section*{License}
+
+This work is licensed under the Creative Commons Attribution 4.0 International
+License. To view a copy of this license, visit
+\url{http://creativecommons.org/licenses/by/4.0/} or send a letter to Creative
+Commons, 444 Castro Street, Suite 900, Mountain View, California, 94041, USA.
+
+\end{document}
+
+
