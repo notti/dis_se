@@ -6,3 +6,5 @@ Implementation of "Programmable Processor Pipeline for Replacing Specialized Mod
 The project is synthesizable with ISE 10 and ISE 14 and has been tested on an XC3S700A. Just add all the vhdl files in the vhdl folder and the bmm and ucf files from the xlnx folder.
 
 The compiler needs ragel (http://www.complang.org/ragel/) and go (http://golang.org/) to compile. Makefiles are provided. Usage: `asm input.asm > input.mem`
+
+Compiled seminar paper: https://github.com/notti/dis_se/releases/download/final/Seminar_CircuitDesign_main.pdf
